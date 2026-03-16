@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Play, Plus, Search } from 'lucide-react'
+import { Play, Search } from 'lucide-react'
 import { useAgents, useCreateAgent } from '../hooks/useAgents'
 import { useTemplates } from '../hooks/useTemplates'
 import { useAgentStore } from '../store/agentStore'
-import type { AgentSummary } from '../types/agent'
 
 const StatusBadge = ({ status }: { status: string }) => {
   const colors = {

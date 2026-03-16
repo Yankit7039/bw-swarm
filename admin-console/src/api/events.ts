@@ -1,3 +1,4 @@
+import { adminApi } from './adminClient'
 import type { EventSummary, MetricsSnapshot, PaginatedResponse } from '../types/event'
 
 export const eventsApi = {
@@ -13,26 +14,26 @@ export const eventsApi = {
       offset?: number
     }
   ): Promise<PaginatedResponse<EventSummary>> => {
-    const empty: PaginatedResponse<EventSummary> = {
-      items: [],
-      total: 0,
+    const response = await adminApi.get('/events', { params })
+    const raw = response.data
+    const items = Array.isArray(raw) ? raw : raw?.data ?? []
+    return {
+      data: items,
+      pagination: {
+        total: items.length,
+        limit: params?.limit ?? 50,
+        offset: params?.offset ?? 0,
+      },
     }
-    return empty
   },
 
   getMetrics: async (): Promise<MetricsSnapshot> => {
-    const metrics: MetricsSnapshot = {
-      agents: {
-        running: 0,
-        paused: 0,
-        completed_last_hour: 0,
-        failed_last_hour: 0,
-      },
-    }
-    return metrics
+    const response = await adminApi.get('/metrics')
+    return response.data
   },
 
   getHealth: async (): Promise<{ status: string }> => {
-    return { status: 'disabled' }
+    const response = await adminApi.get('/health')
+    return response.data
   },
 }

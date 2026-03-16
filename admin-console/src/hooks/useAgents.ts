@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { agentsApi } from '../api/agents'
 import { useAgentStore } from '../store/agentStore'
-import type { CreateAgentRequest } from '../types/agent'
 
 export const useAgents = (params?: {
   status?: string

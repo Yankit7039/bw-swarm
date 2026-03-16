@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { templatesApi } from '../api/templates'
-import type { CreateTemplateRequest } from '../types/template'
 
 export const useTemplates = (limit = 20, offset = 0) => {
   return useQuery({

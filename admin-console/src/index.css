@@ -2,8 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-50 text-gray-900;
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  .running-pulse {
+    animation: pulse-slow 2s infinite;
+  }
+
+  .step-pulse {
+    animation: step-pulse 2s infinite;
+  }
+
+  .node-connector {
+    @apply absolute bg-slate-300 z-0;
+  }
+
+  .material-icon {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+}
+
+@keyframes step-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(80, 72, 229, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(80, 72, 229, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(80, 72, 229, 0);
+  }
+}
+
+@layer utilities {
+  .text-xxs {
+    font-size: 0.625rem;
+    line-height: 0.875rem;
+  }
 }
 
 /* Custom scrollbar */
