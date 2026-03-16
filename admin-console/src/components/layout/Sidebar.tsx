@@ -4,11 +4,13 @@ import {
   FileText,
   Bot,
   ScrollText,
+  PlayCircle,
 } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/templates', icon: FileText, label: 'Templates' },
+  { to: '/runs', icon: PlayCircle, label: 'Runs' },
   { to: '/agents', icon: Bot, label: 'Agents' },
   { to: '/logs', icon: ScrollText, label: 'Logs' },
 ]

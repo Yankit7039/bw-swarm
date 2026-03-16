@@ -51,11 +51,13 @@ echo
 echo -e "${BLUE}==> 2. Build images${NC}"
 docker build -t stuck-order-adk:latest templates/stuck-order-adk
 docker build -f runtime/Dockerfile -t swarm-runtime:latest .
+docker build -f admin-api/Dockerfile -t swarm-admin-api:latest .
 
 echo
 echo -e "${BLUE}==> 3. Load images into Kind${NC}"
 kind load docker-image stuck-order-adk:latest
 kind load docker-image swarm-runtime:latest
+kind load docker-image swarm-admin-api:latest
 
 echo
 echo -e "${BLUE}==> 4. Install agent-sandbox CRDs${NC}"
@@ -77,10 +79,12 @@ kubectl apply -f infra/k8s/postgres.yaml
 kubectl apply -f infra/k8s/runtime-rbac.yaml
 kubectl apply -f infra/k8s/runtime-deployment.yaml
 kubectl apply -f infra/k8s/warmpool-stuck-order-adk.yaml
+kubectl apply -f infra/k8s/admin-api-deployment.yaml
 
 echo
 echo -e "${BLUE}==> 7. Wait for runtime deployment${NC}"
 kubectl rollout status deployment/runtime --timeout=120s
+kubectl rollout status deployment/admin-api --timeout=120s
 
 echo
 echo -e "${BLUE}==> 8. Current pods${NC}"
@@ -89,4 +93,5 @@ kubectl get pods
 echo
 echo -e "${GREEN}✓ Quickstart complete.${NC}"
 echo -e "${BLUE}Runtime:${NC} http://localhost:30080"
+echo -e "${BLUE}Admin API:${NC} http://localhost:30081"
 echo -e "${BLUE}Watch pods:${NC} kubectl get pods -w"

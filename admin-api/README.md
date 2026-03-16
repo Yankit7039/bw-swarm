@@ -1,95 +1,71 @@
-# SWARM Admin API
+# Admin API
 
-FastAPI backend for the SWARM multi-agent orchestration system.
+The **Admin API** is a read-only FastAPI service that exposes templates, runs, and run events from the shared runtime Postgres database. It is designed for use by the Admin Console and other admin tooling.
 
-## Quick Start
+## Responsibilities
 
-Run the startup script to start both PostgreSQL and the API server:
+- Expose templates from the `templates` table:
+  - `GET /templates`
+  - `GET /templates/{template_id}`
+- Expose run status and metadata from the `runs` table:
+  - `GET /runs`
+  - `GET /runs/{run_id}`
+- Expose step-by-step events from the `run_events` table:
+  - `GET /runs/{run_id}/events`
+- Health check:
+  - `GET /health`
 
-```bash
-./start.sh          # Start all services
-./start.sh stop     # Stop all services
-./start.sh restart  # Restart all services
-```
+The Admin API **does not create or update runs**. Run creation and execution is owned by the `runtime` service (`POST /runs`).
 
-The script will:
-1. Create/start the PostgreSQL Docker container
-2. Wait for the database to be ready
-3. Set up the Python virtual environment
-4. Install dependencies (if needed)
-5. Start the FastAPI server with auto-reload
+## Running locally
 
-API will be available at: http://localhost:8000
-
-## Manual Setup
-
-If you prefer to start components manually:
-
-### 1. Start PostgreSQL
+From the repo root:
 
 ```bash
-docker run -d \
-  --name swarm-postgres \
-  -e POSTGRES_USER=swarm \
-  -e POSTGRES_PASSWORD=swarm \
-  -e POSTGRES_DB=swarm \
-  -p 5432:5432 \
-  postgres:16-alpine
+cd admin-api
+uvicorn app.main:app --reload --port 8001
 ```
 
-### 2. Install Dependencies
+By default the service expects `DATABASE_URL` to point at the same Postgres instance used by the runtime, for example:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -e .
+export DATABASE_URL="postgresql+asyncpg://swarm:swarm@localhost:5432/swarm"
 ```
 
-### 3. Configure Environment
+## Endpoints
 
-Create `.env`:
-```
-POSTGRES_URL=postgresql://swarm:swarm@localhost:5432/swarm
-PORT=8000
-LOG_LEVEL=info
-```
+- `GET /health`  
+  Simple health check; returns `{"status": "ok"}`.
 
-### 4. Start API Server
+- `GET /templates`  
+  Lists templates from the `templates` table, ordered by `created_at` (newest first). Supports `limit` and `offset` query params.
 
-```bash
-python -m uvicorn app.main:app --reload --port 8000
-```
+- `GET /templates/{template_id}`  
+  Returns one template by ID or `404` if not found.
 
-## API Endpoints
+- `GET /runs`  
+  Lists runs with optional filters:
+  - `template_id` — filter by template
+  - `status` — one of `pending`, `running`, `completed`, `failed`
+  - `limit`, `offset` — pagination
 
-- `GET /health` - Health check
-- `GET /ready` - Readiness check
-- `GET /templates` - List templates
-- `POST /templates` - Create template
-- `GET /agents` - List agents
-- `POST /agents` - Create/run agent
-- `GET /events/stream` - SSE event stream
-- `GET /events/logs` - Event logs
-- `GET /events/metrics` - System metrics
+- `GET /runs/{run_id}`  
+  Returns a single run by UUID, including status, payload, result, error_message, and timestamps.
 
-## Development
+- `GET /runs/{run_id}/events`  
+  Returns ordered events for the run from the `run_events` table for use in step-by-step UIs.
 
-The API uses:
-- **FastAPI** - Web framework
-- **asyncpg** - Async PostgreSQL driver
-- **Pydantic** - Data validation
-- **SSE** - Server-Sent Events for real-time updates
+## Docker & Kind
 
-## Project Structure
+The Admin API image is built from `admin-api/Dockerfile` (Python 3.12 + FastAPI).
 
-```
-app/
-├── main.py              # FastAPI app entry point
-├── core/                # Config, exceptions
-├── routers/             # API endpoints
-├── services/            # Business logic
-├── repositories/        # Database access
-├── schemas/             # Pydantic models
-├── domain/              # Domain models
-└── infra/               # Database, SSE manager
-```
+The Kind quickstart script:
+
+- Builds `swarm-admin-api:latest`
+- Loads it into the Kind cluster
+- Applies `infra/k8s/admin-api-deployment.yaml`
+
+After running `./scripts/quickstart.sh`, the Admin API is available at:
+
+- `http://localhost:30081` (NodePort service `admin-api` in the Kind cluster)
+

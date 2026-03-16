@@ -1,4 +1,3 @@
-import { api } from './client'
 import type { EventSummary, MetricsSnapshot, PaginatedResponse } from '../types/event'
 
 export const eventsApi = {
@@ -14,17 +13,26 @@ export const eventsApi = {
       offset?: number
     }
   ): Promise<PaginatedResponse<EventSummary>> => {
-    const response = await api.get('/events/logs', { params })
-    return response.data
+    const empty: PaginatedResponse<EventSummary> = {
+      items: [],
+      total: 0,
+    }
+    return empty
   },
 
   getMetrics: async (): Promise<MetricsSnapshot> => {
-    const response = await api.get('/events/metrics')
-    return response.data
+    const metrics: MetricsSnapshot = {
+      agents: {
+        running: 0,
+        paused: 0,
+        completed_last_hour: 0,
+        failed_last_hour: 0,
+      },
+    }
+    return metrics
   },
 
   getHealth: async (): Promise<{ status: string }> => {
-    const response = await api.get('/health')
-    return response.data
+    return { status: 'disabled' }
   },
 }

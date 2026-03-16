@@ -4,6 +4,7 @@ import asyncio
 import uuid
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from runtime.claim_reconciler import claim_reconciler
 from runtime.db import (
@@ -19,6 +20,17 @@ from runtime.db.run_migrations import run_migrations
 app = FastAPI(
     title="Runtime",
     description="Template-agnostic orchestrator: POST /runs (template_id + payload), GET /runs, GET /runs/events.",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

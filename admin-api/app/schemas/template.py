@@ -1,63 +1,15 @@
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Any
-from uuid import UUID
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel
 
 
-class StepDefinition(BaseModel):
-    id: str
-    name: str
-    type: str = Field(..., pattern="^(subagent|deterministic|parallel)$")
-    depends_on: list[str] = Field(default_factory=list)
-    task: str | None = None
-    adapter: str | None = None
-    action: str | None = None
-    input: dict[str, Any] = Field(default_factory=dict)
-    output_schema: dict[str, Any] = Field(default_factory=dict)
-    parallel: list[dict[str, Any]] = Field(default_factory=list)
+class Template(BaseModel):
+  template_id: str
+  name: str
+  image: str
+  warm_pool_ref: str | None = None
+  config: dict[str, Any] | None = None
+  created_at: datetime | None = None
+  updated_at: datetime | None = None
 
-
-class WorkflowDefinition(BaseModel):
-    version: str = "1.0"
-    steps: list[StepDefinition]
-
-
-class TemplateSummary(BaseModel):
-    id: UUID
-    name: str
-    version: int
-    created_at: datetime
-    updated_at: datetime
-
-
-class TemplateDetail(BaseModel):
-    id: UUID
-    name: str
-    version: int
-    definition: dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
-
-
-class CreateTemplateRequest(BaseModel):
-    name: str
-    definition: dict[str, Any]
-
-
-class TemplateResponse(BaseModel):
-    id: UUID
-    name: str
-    version: int
-    created_at: datetime
-
-
-class ValidationError(BaseModel):
-    field: str
-    message: str
-
-
-class ValidateTemplateResponse(BaseModel):
-    valid: bool
-    errors: list[ValidationError] = []
