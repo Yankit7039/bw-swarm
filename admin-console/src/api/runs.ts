@@ -8,6 +8,16 @@ export interface TriggerRunRequest {
   order_id: string
 }
 
+export interface TriggerBatchRequest {
+  template_id: string
+  order_ids: string[]
+}
+
+export interface TriggerBatchResult {
+  successful: { order_id: string; run_id: string }[]
+  failed: { order_id: string; error: string }[]
+}
+
 export const runsApi = {
   list: async (
     params: { template_id?: string; status?: string; limit?: number; offset?: number } = {}
@@ -41,6 +51,29 @@ export const runsApi = {
       payload: { order_id },
     })
     return response.data
+  },
+
+  triggerBatch: async ({ template_id, order_ids }: TriggerBatchRequest): Promise<TriggerBatchResult> => {
+    const results: TriggerBatchResult = { successful: [], failed: [] }
+
+    await Promise.all(
+      order_ids.map(async (order_id) => {
+        try {
+          const response = await runtimeApi.post('/runs', {
+            template_id,
+            payload: { order_id },
+          })
+          results.successful.push({ order_id, run_id: response.data.run_id })
+        } catch (error) {
+          results.failed.push({
+            order_id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          })
+        }
+      })
+    )
+
+    return results
   },
 }
 

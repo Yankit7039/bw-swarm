@@ -12,6 +12,9 @@ import {
   Check,
   X,
   Network,
+  List,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { runsApi } from '../api/runs'
@@ -203,6 +206,9 @@ export const Runs = () => {
   const navigate = useNavigate()
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
   const [orderId, setOrderId] = useState<string>('ORD-001')
+  const [batchOrderIds, setBatchOrderIds] = useState<string>('ORD-001\nORD-002\nORD-003\nORD-004\nORD-005')
+  const [isBatchMode, setIsBatchMode] = useState<boolean>(false)
+  const [batchResults, setBatchResults] = useState<{ successful: { order_id: string; run_id: string }[]; failed: { order_id: string; error: string }[] } | null>(null)
   const [statusFilter] = useState<string>('all')
 
   const { data: templates } = useTemplates(100, 0)
@@ -226,6 +232,21 @@ export const Runs = () => {
     },
     onSuccess: (data) => {
       navigate(`/runs/${data.run_id}`)
+    },
+  })
+
+  const batchTriggerMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedTemplate) throw new Error('Please select a template')
+      const orderIds = batchOrderIds
+        .split('\n')
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0)
+      if (orderIds.length === 0) throw new Error('Please enter at least one order ID')
+      return runsApi.triggerBatch({ template_id: selectedTemplate, order_ids: orderIds })
+    },
+    onSuccess: (data) => {
+      setBatchResults(data)
     },
   })
 
@@ -272,53 +293,183 @@ export const Runs = () => {
 
         {/* Trigger Run Form */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 mb-8 shadow-sm">
-          <div className="flex flex-col md:flex-row items-end gap-4">
-            <div className="flex-1 w-full">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Template</label>
-              <select
-                value={selectedTemplate}
-                onChange={(e) => setSelectedTemplate(e.target.value)}
-                className="w-full rounded-lg border-slate-200 bg-slate-50 border px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-              >
-                <option value="">Select a template</option>
-                {templates?.data?.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1 w-full">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Order ID / Input</label>
-              <input
-                type="text"
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
-                placeholder="OH-1 or custom input"
-                className="w-full rounded-lg border-slate-200 bg-slate-50 border px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-              />
-            </div>
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-2 mb-4">
             <button
-              onClick={() => triggerMutation.mutate()}
-              disabled={!selectedTemplate || !orderId.trim() || triggerMutation.isPending}
-              className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setIsBatchMode(false)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                !isBatchMode
+                  ? 'bg-primary text-white shadow-md'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
             >
-              {triggerMutation.isPending ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Triggering...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4" />
-                  <span>Trigger Run</span>
-                </>
-              )}
+              <Play className="w-4 h-4" />
+              Single Run
+            </button>
+            <button
+              onClick={() => setIsBatchMode(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                isBatchMode
+                  ? 'bg-primary text-white shadow-md'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <List className="w-4 h-4" />
+              Batch Run
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-3">
-            Supports manual order IDs like OH-1; the numeric part maps deterministically to scenarios via n % 5.
-          </p>
+
+          {isBatchMode ? (
+            /* Batch Mode */
+            <div className="space-y-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Template</label>
+                  <select
+                    value={selectedTemplate}
+                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                    className="w-full rounded-lg border-slate-200 bg-slate-50 border px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                  >
+                    <option value="">Select a template</option>
+                    {templates?.data?.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    Order IDs (one per line)
+                  </label>
+                  <textarea
+                    value={batchOrderIds}
+                    onChange={(e) => setBatchOrderIds(e.target.value)}
+                    placeholder="ORD-001&#10;ORD-002&#10;ORD-003"
+                    rows={5}
+                    className="w-full rounded-lg border-slate-200 bg-slate-50 border px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none resize-none font-mono"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-500">
+                  Enter one order ID per line. Each will trigger a separate run with the same template.
+                </p>
+                <button
+                  onClick={() => batchTriggerMutation.mutate()}
+                  disabled={!selectedTemplate || !batchOrderIds.trim() || batchTriggerMutation.isPending}
+                  className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {batchTriggerMutation.isPending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Triggering {batchOrderIds.split('\n').filter((id) => id.trim()).length} runs...</span>
+                    </>
+                  ) : (
+                    <>
+                      <List className="w-4 h-4" />
+                      <span>Trigger Batch</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Batch Results */}
+              {batchResults && (
+                <div className="mt-4 p-4 rounded-lg bg-slate-50 border border-slate-200">
+                  <h4 className="font-semibold text-slate-900 mb-3">Batch Results</h4>
+                  {batchResults.successful.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 text-emerald-600 font-medium mb-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Successful ({batchResults.successful.length})</span>
+                      </div>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {batchResults.successful.map((result) => (
+                          <div key={result.order_id} className="flex items-center justify-between text-sm bg-white px-3 py-2 rounded border">
+                            <span className="font-mono text-slate-700">{result.order_id}</span>
+                            <Link
+                              to={`/runs/${result.run_id}`}
+                              className="text-primary hover:underline font-medium"
+                            >
+                              View Run →
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {batchResults.failed.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 text-rose-600 font-medium mb-2">
+                        <AlertCircle className="w-4 h-4" />
+                        <span>Failed ({batchResults.failed.length})</span>
+                      </div>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {batchResults.failed.map((result) => (
+                          <div key={result.order_id} className="text-sm bg-white px-3 py-2 rounded border">
+                            <span className="font-mono text-slate-700">{result.order_id}</span>
+                            <span className="text-rose-500 ml-2">— {result.error}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Single Mode */
+            <div className="flex flex-col md:flex-row items-end gap-4">
+              <div className="flex-1 w-full">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Template</label>
+                <select
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  className="w-full rounded-lg border-slate-200 bg-slate-50 border px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                >
+                  <option value="">Select a template</option>
+                  {templates?.data?.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1 w-full">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Order ID / Input</label>
+                <input
+                  type="text"
+                  value={orderId}
+                  onChange={(e) => setOrderId(e.target.value)}
+                  placeholder="OH-1 or custom input"
+                  className="w-full rounded-lg border-slate-200 bg-slate-50 border px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                />
+              </div>
+              <button
+                onClick={() => triggerMutation.mutate()}
+                disabled={!selectedTemplate || !orderId.trim() || triggerMutation.isPending}
+                className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {triggerMutation.isPending ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Triggering...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    <span>Trigger Run</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+          {!isBatchMode && (
+            <p className="text-xs text-slate-500 mt-3">
+              Supports manual order IDs like OH-1; the numeric part maps deterministically to scenarios via n % 5.
+            </p>
+          )}
         </div>
 
         {/* Execution List */}
