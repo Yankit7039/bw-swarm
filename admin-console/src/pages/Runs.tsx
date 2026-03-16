@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom'
 
 export const Runs = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
-  const [orderId, setOrderId] = useState<string>('ORDER-001')
+  const [orderId, setOrderId] = useState<string>('ORD-001')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
   const { data: templates } = useTemplates(100, 0)
@@ -37,7 +37,7 @@ export const Runs = () => {
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Runs</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Trigger new runs and monitor existing ones. Payload supports manual order IDs like ORDER-001.
+          Trigger new runs and monitor existing ones. Payload supports manual order IDs like OH-1; the numeric part of the ID maps deterministically to scenarios via n % 5.
         </p>
       </div>
 
@@ -65,7 +65,7 @@ export const Runs = () => {
             className="w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
             value={orderId}
             onChange={(e) => setOrderId(e.target.value)}
-            placeholder="ORDER-001"
+            placeholder="OH-1"
           />
         </div>
 

@@ -1,21 +1,23 @@
 """Shared scenario state for correlated mock tool responses across order_id."""
 
 from typing import Any
-
-SCENARIO_ORDER_IDS = {
-    "ORDER-TIMEOUT": 0,
-    "ORDER-BILLING": 1,
-    "ORDER-NETWORK": 2,
-    "ORDER-UPSTREAM": 3,
-    "ORDER-CONTRADICTORY": 4,
-}
+import re
 
 _run_state: dict[str, dict[str, Any]] = {}
 
 
 def get_scenario(order_id: str) -> int:
-    """Map order_id to scenario 0..4. Unknown IDs fall back to 0."""
-    return SCENARIO_ORDER_IDS.get(order_id, 0)
+    """Map order_id to scenario 0..4 using numeric suffix modulo 5. Unknown/non-numeric IDs fall back to 0."""
+    if not order_id:
+        return 0
+
+    # Use the last numeric substring in the order_id (e.g. OH-159 -> 159, ORDER-42 -> 42, "159" -> 159).
+    matches = re.findall(r"\d+", order_id)
+    if not matches:
+        return 0
+
+    n = int(matches[-1])
+    return n % 5
 
 
 def get_run_state(order_id: str) -> dict[str, Any]:

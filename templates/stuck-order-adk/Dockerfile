@@ -2,11 +2,13 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install the package and its dependencies directly from pyproject.toml
+COPY pyproject.toml README.md ./
+RUN pip install --no-cache-dir .
 
 RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
 
+# Copy the rest of the application code
 COPY . .
 
 USER appuser
