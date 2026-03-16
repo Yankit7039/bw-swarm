@@ -1,31 +1,106 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
+# ==========================================
+# Python / FastAPI
+# ==========================================
 .venv/
 venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 *.egg-info/
-.eggs/
+*.egg
+*.whl
 dist/
 build/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
 
-# Env and secrets
+# ==========================================
+# Node.js / React
+# ==========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist-ssr/
+*.local
+.vite/
+
+# ==========================================
+# Environment files
+# ==========================================
 .env
 .env.local
-*.local
+.env.*.local
+.env.production
+.env.development
+!.env.example
+!.env.template
 
-# DB and session
-*.db
+# ==========================================
+# IDE / Editor
+# ==========================================
+.vscode/
+*.code-workspace
+.idea/
+*.iml
+*.iws
+*.ipr
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+.#*
+
+# ==========================================
+# OS
+# ==========================================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.nfs*
+
+# ==========================================
+# Logs and databases
+# ==========================================
+*.log
 *.sqlite
 *.sqlite3
+*.db
 
-# IDE and OS
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
+# ==========================================
+# Docker
+# ==========================================
+docker-volumes/
+postgres-data/
 
-# Logs and temp
-*.log
+# ==========================================
+# Project specific
+# ==========================================
+.api.pid
+*.local.sh
 tmp/
 temp/
+.tmp/
+*.tmp
+*.bak
+*.backup
+
+# ==========================================
+# Allow
+# ==========================================
+!.env.example
+!.env.template
+/admin-api/.env
