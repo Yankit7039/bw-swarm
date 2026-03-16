@@ -1,0 +1,21 @@
+[project]
+name = "stuck-order-adk"
+version = "1.0.0"
+description = "Stuck Order Resolution template — ADK agent for runtime/sandbox"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "google-adk",
+    "fastapi",
+    "uvicorn[standard]",
+    "aiosqlite",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["stuck_order_agent"]

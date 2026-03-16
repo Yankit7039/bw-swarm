@@ -1,0 +1,31 @@
+# RBAC for runtime: create and poll SandboxClaims (extensions.agents.x-k8s.io).
+# Apply before or with runtime-deployment.yaml. Use same namespace as runtime (default).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: runtime
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: runtime-sandbox-claims
+  namespace: default
+rules:
+  - apiGroups: ["extensions.agents.x-k8s.io"]
+    resources: ["sandboxclaims"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: runtime-sandbox-claims
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: runtime-sandbox-claims
+subjects:
+  - kind: ServiceAccount
+    name: runtime
+    namespace: default

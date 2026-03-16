@@ -1,5 +1,6 @@
 # SWARM infra — PostgreSQL and Redis (DB + message queue)
 # See swarm.md §5 Infrastructure & Technology Stack
+# Runtime uses Postgres only (no Redis). Same DB for all templates.
 
 services:
   postgres:
@@ -10,6 +11,7 @@ services:
       POSTGRES_USER: swarm
       POSTGRES_PASSWORD: swarm
       POSTGRES_DB: swarm
+      POSTGRES_HOST_AUTH_METHOD: md5
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -19,6 +21,17 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+
+  runtime:
+    build:
+      context: ../..
+      dockerfile: runtime/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://swarm:swarm@postgres:5432/swarm
+    depends_on:
+      - postgres
 
 volumes:
   postgres_data:

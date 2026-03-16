@@ -7,7 +7,8 @@ Architecture and design are documented in **[swarm.md](swarm.md)**.
 - **adapter-service** — Integration abstraction layer for external services
 - **admin-api** — Admin API for templates, runs, and configuration
 - **admin-console** — Management UI for templates, runs, and configuration
-- **agent-runtime** — Core execution engine for agent workflows
-- **infra** — DB, Redis, and deployment (K8s/Docker) for Swarm Infra
+- **runtime** — Template-agnostic orchestrator: POST /runs (template_id + payload), GET /runs, GET /runs/events; Postgres, sandbox trigger (see [runtime/README.md](runtime/README.md))
+- **templates** — Template implementations (e.g. [stuck-order-adk](templates/stuck-order-adk)): agent + entrypoint; no orchestration
+- **infra** — DB and deployment (Docker/K8s); Postgres shared by runtime and templates
 - **observability** — Monitoring and tracing (e.g. OpenTelemetry/APM)
 - **scripts** — Run and utility scripts
