@@ -19,6 +19,8 @@ spec:
           env:
             - name: ENTRYPOINT_PORT
               value: "8888"
+            - name: ADAPTER_URL
+              value: "http://adapter:8080"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

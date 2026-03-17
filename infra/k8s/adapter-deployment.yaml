@@ -1,0 +1,65 @@
+# Adapter service (FastAPI + MCP) — ClusterIP inside kind cluster
+# Build from repo root: docker build -t swarm-adapter:latest adapter
+# Load into kind: kind load docker-image swarm-adapter:latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adapter
+  labels:
+    app: adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adapter
+  template:
+    metadata:
+      labels:
+        app: adapter
+    spec:
+      containers:
+        - name: adapter
+          image: swarm-adapter:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: MCP_MOUNT_PATH
+              value: "/mcp"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adapter
+  labels:
+    app: adapter
+spec:
+  type: ClusterIP
+  selector:
+    app: adapter
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+

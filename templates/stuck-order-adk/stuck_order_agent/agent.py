@@ -5,13 +5,25 @@ import os
 from google.adk.agents import Agent, SequentialAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.lite_llm import LiteLlm
+from google.adk.tools import McpToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnectionParams
 
 from stuck_order_agent import tools
 
 # OpenRouter model via LiteLLM. Pass api_key/api_base explicitly so the key is sent with every request.
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/anthropic/claude-sonnet-4")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/qwen/qwen3.5-flash-02-23")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 OPENROUTER_API_BASE = os.environ.get("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
+
+ADAPTER_URL = os.environ.get("ADAPTER_URL", "http://adapter:8080").rstrip("/")
+MCP_URL = f"{ADAPTER_URL}/mcp"
+
+
+def _mcp_tools(tool_filter: list[str], timeout_s: int = 30) -> McpToolset:
+    return McpToolset(
+        connection_params=StreamableHTTPConnectionParams(url=MCP_URL, timeout=timeout_s),
+        tool_filter=tool_filter,
+    )
 
 
 def _inject_order_id(callback_context: CallbackContext) -> None:
@@ -22,6 +34,15 @@ def _inject_order_id(callback_context: CallbackContext) -> None:
 
 
 def _create_enrich_agent() -> Agent:
+    enrich_tools = _mcp_tools(
+        [
+            "amdocs_oms__get_order_status",
+            "amdocs_oms__get_order_history",
+            "siebel_crm__lookup_customer",
+            "siebel_crm__get_account_status",
+        ],
+        timeout_s=30,
+    )
     return Agent(
         name="enrich",
         model=LiteLlm(model=OPENROUTER_MODEL, api_key=OPENROUTER_API_KEY, api_base=OPENROUTER_API_BASE),
@@ -29,16 +50,36 @@ def _create_enrich_agent() -> Agent:
 customer profile associated with it. Return a structured summary of everything you find.
 If the order does not exist, stop and report that clearly.
 
-When calling fetch_order_details, pass order_id={order_id}.
-When calling fetch_customer_profile, pass the order_id and customer_id (or empty string for customer_id to look up by order only).""",
+Use these tools:
+- amdocs_oms__get_order_status(order_id)
+- amdocs_oms__get_order_history(order_id, limit, offset)
+- siebel_crm__lookup_customer(order_id, customer_id="")
+- siebel_crm__get_account_status(customer_id)
+
+Call amdocs_oms__get_order_status and amdocs_oms__get_order_history for the order.
+Call siebel_crm__lookup_customer to fetch the CRM profile; then optionally call siebel_crm__get_account_status.""",
         description="Context enrichment: fetches order and customer data from BSS/CRM.",
-        tools=[tools.fetch_order_details, tools.fetch_customer_profile],
+        tools=[enrich_tools],
         output_key="enrich_output",
         before_agent_callback=_inject_order_id,
     )
 
 
 def _create_investigate_agent() -> Agent:
+    investigate_tools = _mcp_tools(
+        [
+            "amdocs_oms__get_order_status",
+            "amdocs_oms__get_error_codes",
+            "amdocs_oms__get_order_history",
+            "siebel_crm__get_billing_flags",
+            "ericsson__get_port_status",
+            "ericsson__get_activation_logs",
+            "ericsson__get_network_inventory",
+            "netcracker__get_provisioning_status",
+            "netcracker__get_dependency_map",
+        ],
+        timeout_s=30,
+    )
     return Agent(
         name="investigate",
         model=LiteLlm(model=OPENROUTER_MODEL, api_key=OPENROUTER_API_KEY, api_base=OPENROUTER_API_BASE),
@@ -46,11 +87,20 @@ def _create_investigate_agent() -> Agent:
 Use your tools to investigate why it is stuck.
 
 Work through this checklist:
-1. Query provisioning logs for errors or timeouts (use limit=20, offset=0 then increase offset to get all pages if has_more is true). Pass order_id={order_id}.
-2. Check the billing ledger for mismatches or holds (use order_id={order_id}).
-3. Check network status for active holds on the MSISDN (use order_id from enrich_output or {order_id}).
-4. Search similar resolved cases (use order_id={order_id} and a short query), then call get_case_details for promising case_ids.
-5. Use lookup_error_code for any opaque codes in logs; use get_hold_details for any hold_id you find.
+1. Fetch OMS status + history:
+   - amdocs_oms__get_order_status(order_id={order_id})
+   - amdocs_oms__get_order_history(order_id={order_id}, limit=20, offset=0) and paginate if has_more is true
+2. Check billing flags/holds:
+   - siebel_crm__get_billing_flags(order_id={order_id})
+3. Check network/port status and activation logs:
+   - ericsson__get_port_status(order_id={order_id}, msisdn="") (or use msisdn from enrich_output if available)
+   - ericsson__get_activation_logs(order_id={order_id}, hours=24, msisdn="")
+   - ericsson__get_network_inventory(msisdn)
+4. Check downstream provisioning view and dependency map:
+   - netcracker__get_provisioning_status(order_id={order_id})
+   - netcracker__get_dependency_map(order_id={order_id})
+5. For any opaque codes from OMS/logs, call:
+   - amdocs_oms__get_error_codes(code)
 6. Determine which department owns the fix.
 
 Each conclusion must cite specific evidence from tool results. If two systems contradict each other, note it and reason about which is authoritative.
@@ -59,47 +109,52 @@ Before producing your final output, your confidence must reach 0.85 or above. Af
 
 When confident, produce: root_cause, root_cause_category, department_owner, severity, confidence, resolution_hint, auto_resolvable.""",
         description="Investigate and classify root cause of stuck order.",
-        tools=[
-            tools.query_provisioning_logs,
-            tools.check_billing_ledger,
-            tools.check_network_status,
-            tools.get_network_events,
-            tools.get_hold_details,
-            tools.lookup_error_code,
-            tools.search_similar_cases,
-            tools.get_case_details,
-        ],
+        tools=[investigate_tools],
         output_key="investigate_output",
     )
 
 
 def _create_resolve_agent() -> Agent:
+    resolve_tools = _mcp_tools(
+        [
+            "amdocs_oms__retry_order",
+            "amdocs_oms__get_order_status",
+            "ericsson__retry_activation",
+        ],
+        timeout_s=30,
+    )
     return Agent(
         name="resolve",
         model=LiteLlm(model=OPENROUTER_MODEL, api_key=OPENROUTER_API_KEY, api_base=OPENROUTER_API_BASE),
         instruction="""You are a telecom remediation agent. The stuck order has order_id: {order_id}. Based on the investigation findings in {investigate_output},
-attempt to resolve the stuck order using your tools. Pass order_id={order_id} to all tools (trigger_provisioning_retry, force_billing_reconcile, release_network_hold, poll_order_status).
+attempt to resolve the stuck order using your tools.
 
 Follow the resolution_hint from the investigation and what worked in similar cases (from get_case_details).
 
-Do not assume the first remediation works. Always poll_order_status after each action. If status has not moved to completed,
+Do not assume the first remediation works. Always check amdocs_oms__get_order_status after each action. If status has not moved to completed,
 try the next action. Only declare failure after exhausting all available actions. Poll at least once between each action.
 
 For contradictory evidence (logs say done, status stuck): provisioning retry will not help; check billing and run force_billing_reconcile.
 
+Available remediation tools:
+- amdocs_oms__retry_order(order_id)
+- ericsson__retry_activation(order_id, msisdn="")
+
 After each tool result, write 2-3 sentences of reasoning before deciding the next action.""",
         description="Attempt automatic resolution of the stuck order.",
-        tools=[
-            tools.trigger_provisioning_retry,
-            tools.force_billing_reconcile,
-            tools.release_network_hold,
-            tools.poll_order_status,
-        ],
+        tools=[resolve_tools],
         output_key="resolve_output",
     )
 
 
 def _create_notify_agent() -> Agent:
+    notify_tools = _mcp_tools(
+        [
+            "siebel_crm__get_contact_details",
+            "siebel_crm__get_service_requests",
+        ],
+        timeout_s=30,
+    )
     return Agent(
         name="notify",
         model=LiteLlm(model=OPENROUTER_MODEL, api_key=OPENROUTER_API_KEY, api_base=OPENROUTER_API_BASE),
@@ -114,9 +169,11 @@ Then write a concise email (under 200 words) covering:
 - What was attempted and the outcome
 - Numbered list of recommended next actions (max 3)
 
+If you need customer contact info, call siebel_crm__get_contact_details(customer_id) (customer_id should be available in enrich_output).
+
 Then send the email using send_email. Use only data from the inputs provided.""",
         description="Notify escalation owner by email.",
-        tools=[tools.lookup_escalation_owner, tools.send_email],
+        tools=[notify_tools, tools.lookup_escalation_owner, tools.send_email],
         output_key="notify_output",
     )
 
