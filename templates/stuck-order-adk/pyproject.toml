@@ -5,7 +5,8 @@ description = "Stuck Order Resolution template — ADK agent for runtime/sandbox
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "google-adk[extensions]",
+    "google-adk",
+    "litellm>=1.75.5,<2.0.0",
     "fastapi",
     "uvicorn[standard]",
     "aiosqlite",
