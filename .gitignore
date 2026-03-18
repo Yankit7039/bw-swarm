@@ -104,3 +104,17 @@ temp/
 !.env.example
 !.env.template
 /admin-api/.env
+
+# ==========================================
+# Terraform (scoped to infra/terraform)
+# ==========================================
+/infra/terraform/**/.terraform/
+/infra/terraform/**/.terraform.tfstate.lock.info
+/infra/terraform/**/terraform.tfstate
+/infra/terraform/**/terraform.tfstate.*
+/infra/terraform/**/crash.log
+/infra/terraform/**/crash.*.log
+
+# Keep these committed
+!/infra/terraform/**/.terraform.lock.hcl
+!/infra/terraform/**/terraform.tfvars
