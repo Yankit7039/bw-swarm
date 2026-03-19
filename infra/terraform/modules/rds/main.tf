@@ -3,30 +3,24 @@ resource "aws_security_group" "db" {
   description = "RDS PostgreSQL security group"
   vpc_id      = var.vpc_id
 
-  ingress = []
-  egress  = []
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [var.eks_node_security_group_id]
+    description     = "Allow EKS nodes to connect to PostgreSQL"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound"
+  }
 
   revoke_rules_on_delete = false
-  tags                    = {}
-}
-
-resource "aws_security_group_rule" "db_egress" {
-  type              = "egress"
-  security_group_id = aws_security_group.db.id
-
-  protocol    = "-1"
-  from_port   = 0
-  to_port     = 0
-  cidr_blocks = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "db_ingress" {
-  type                     = "ingress"
-  from_port                = 5432
-  to_port                  = 5432
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.db.id
-  source_security_group_id = var.eks_node_security_group_id
+  tags                   = {}
 }
 
 resource "aws_db_subnet_group" "this" {

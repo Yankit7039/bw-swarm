@@ -306,24 +306,38 @@ docker push 718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/stuck-order-adk:la
 
 ---
 
-## 6. Apply Kubernetes Manifests (EKS)
+## 6. Deployment Order (HTTPS + Route 53)
+
+With the HTTPS and Route 53 setup, **Terraform manages the Ingress** via `kubernetes_manifest`. The order is:
+
+### 6.1 Full deployment sequence
+
+| Step | Action | What it creates |
+|------|--------|-----------------|
+| 1 | `terraform -chdir=infra/terraform/prod apply` | EKS, Helm (ALB controller, External Secrets), ACM cert, DNS validation, **Ingress**, Route 53 alias records |
+| 2 | Configure kubectl for EKS | `aws eks update-kubeconfig` |
+| 3 | Build and push images to ECR | Docker images for runtime, admin-api, etc. |
+| 4 | `kubectl apply` (see 6.2) | Agent-sandbox, external-secret, deployments, warmpool — **skip Ingress** |
+
+**Important**: Do **not** run `kubectl apply` for `ingress.yaml` or `ingress-admin.yaml`. Terraform creates the Ingress with the ACM certificate ARN.
+
+**If you already applied the old Ingress via kubectl**: Delete them first so Terraform can create the new HTTPS-enabled ones:
+
+```powershell
+kubectl delete ingress runtime-ingress admin-api-ingress -n default
+```
+
+Then run `terraform -chdir=infra/terraform/prod apply`. Terraform will create the new Ingress with HTTPS. The ALB controller will provision new ALBs; Route 53 records will point to them.
+
+### 6.2 Apply manifests in the documented order
 
 You must be on the **EKS context** before running these.
-
-### 6.1 Verify context
 
 ```powershell
 kubectl config get-contexts
 kubectl config current-context
+# If needed: kubectl config use-context <eks-context-name>
 ```
-
-If needed:
-
-```powershell
-kubectl config use-context <eks-context-name>
-```
-
-### 6.2 Apply manifests in the documented order
 
 From `infra/k8s-aws/README.md`:
 
@@ -342,7 +356,7 @@ kubectl wait --for=condition=established `
   crd/sandboxwarmpools.extensions.agents.x-k8s.io `
   --timeout=60s
 
-# 4) External secrets + app components + warmpool + ingress
+# 4) External secrets + app components + warmpool (NO ingress — Terraform manages it)
 kubectl apply -f infra/k8s-aws/external-secret.yaml
 kubectl apply -f infra/k8s-aws/cluster-secret-store.yaml
 kubectl apply -f infra/k8s-aws/runtime-rbac.yaml
@@ -350,8 +364,8 @@ kubectl apply -f infra/k8s-aws/adapter-deployment.yaml
 kubectl apply -f infra/k8s-aws/runtime-deployment.yaml
 kubectl apply -f infra/k8s-aws/admin-api-deployment.yaml
 kubectl apply -f infra/k8s-aws/warmpool-stuck-order-adk.yaml
-kubectl apply -f infra/k8s-aws/ingress.yaml          # runtime ALB
-kubectl apply -f infra/k8s-aws/ingress-admin.yaml   # admin API ALB
+# Skip: kubectl apply -f infra/k8s-aws/ingress.yaml
+# Skip: kubectl apply -f infra/k8s-aws/ingress-admin.yaml
 ```
 
 Same in bash (replace backticks with `\` as needed).
@@ -373,29 +387,26 @@ You should see:
 - Services for `runtime`, `admin-api`, `adapter`, etc.
 - Two ingresses (e.g. `runtime-ingress`, `admin-api-ingress`) with **hostname** values.
 
-### 7.2 Health checks
+### 7.2 Health checks (HTTPS URLs)
 
-Get the ALB hostname for the runtime:
+With Route 53 and ACM configured, use the final URLs:
+
+```powershell
+# Runtime
+curl https://runtime.swarm.singledigit.team/health
+
+# Admin API
+curl https://api.swarm.singledigit.team/health
+```
+
+Both should return `{"status":"ok"}`.
+
+Or get the ALB hostname directly:
 
 ```powershell
 kubectl get ingress runtime-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-```
-
-Then:
-
-```powershell
 curl https://<runtime-alb-hostname>/health
 ```
-
-For admin API:
-
-```powershell
-kubectl get ingress admin-api-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-
-curl https://<admin-alb-hostname>/health
-```
-
-Both should return a small JSON `{"status":"ok"}`.
 
 ---
 

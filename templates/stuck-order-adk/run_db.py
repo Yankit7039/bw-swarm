@@ -13,7 +13,7 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql+asyncpg://swarm:swarm@localhost:5432/swarm"
 ).replace("postgresql://", "postgresql+asyncpg://", 1)
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+engine = create_async_engine(DATABASE_URL, echo=False, connect_args={"ssl": None})
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

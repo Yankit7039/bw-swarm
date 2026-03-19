@@ -48,6 +48,7 @@ If the CRD names change in a newer agent-sandbox release, replace the `kubectl w
     - `/` → `runtime`
   - `infra/k8s-aws/ingress-admin.yaml` creates a separate internet-facing ALB for the `admin-api` service:
     - `/` → `admin-api`
+- **HTTPS / Route 53**: When using the Terraform HTTPS and Route 53 setup (`infra/terraform/prod`), the Ingress is managed by Terraform via `kubernetes_manifest` using the `.tpl` templates. In that case, skip `kubectl apply` for `ingress.yaml` and `ingress-admin.yaml`. If applying manually via kubectl, replace `REPLACE_WITH_TERRAFORM_OUTPUT_ACM_CERTIFICATE_ARN` in those files with `terraform output -raw acm_certificate_arn`.
 
 ### Agent-sandbox upgrades
 

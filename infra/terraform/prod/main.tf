@@ -312,3 +312,171 @@ resource "helm_release" "external_secrets" {
   }
 }
 
+# --- ACM certificate for *.swarm.singledigit.team (ap-southeast-1) ---
+resource "aws_acm_certificate" "swarm_singledigit" {
+  domain_name       = "*.swarm.singledigit.team"
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "acm_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.swarm_singledigit.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = var.route53_zone_id
+}
+
+resource "aws_acm_certificate_validation" "swarm_singledigit" {
+  certificate_arn         = aws_acm_certificate.swarm_singledigit.arn
+  validation_record_fqdns = [for r in aws_route53_record.acm_validation : r.fqdn]
+}
+
+# --- Ingress (Terraform-managed for dependency ordering) ---
+resource "kubernetes_ingress_v1" "ingress_runtime" {
+  metadata {
+    name      = "runtime-ingress"
+    namespace = "default"
+    annotations = {
+      "alb.ingress.kubernetes.io/scheme"           = "internet-facing"
+      "alb.ingress.kubernetes.io/target-type"      = "ip"
+      "alb.ingress.kubernetes.io/healthcheck-path"  = "/health"
+      "alb.ingress.kubernetes.io/listen-ports"     = "[{\"HTTP\": 80}, {\"HTTPS\": 443}]"
+      "alb.ingress.kubernetes.io/ssl-redirect"     = "443"
+      "alb.ingress.kubernetes.io/certificate-arn"  = aws_acm_certificate_validation.swarm_singledigit.certificate_arn
+    }
+  }
+
+  spec {
+    ingress_class_name = "alb"
+    rule {
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = "runtime"
+              port {
+                number = 8000
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [aws_acm_certificate_validation.swarm_singledigit]
+}
+
+resource "kubernetes_ingress_v1" "ingress_admin_api" {
+  metadata {
+    name      = "admin-api-ingress"
+    namespace = "default"
+    annotations = {
+      "alb.ingress.kubernetes.io/scheme"           = "internet-facing"
+      "alb.ingress.kubernetes.io/target-type"      = "ip"
+      "alb.ingress.kubernetes.io/healthcheck-path"  = "/health"
+      "alb.ingress.kubernetes.io/listen-ports"     = "[{\"HTTP\": 80}, {\"HTTPS\": 443}]"
+      "alb.ingress.kubernetes.io/ssl-redirect"     = "443"
+      "alb.ingress.kubernetes.io/certificate-arn"  = aws_acm_certificate_validation.swarm_singledigit.certificate_arn
+    }
+  }
+
+  spec {
+    ingress_class_name = "alb"
+    rule {
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = "admin-api"
+              port {
+                number = 8000
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [aws_acm_certificate_validation.swarm_singledigit]
+}
+
+resource "time_sleep" "wait_for_alb" {
+  depends_on = [
+    helm_release.aws_load_balancer_controller,
+    kubernetes_ingress_v1.ingress_runtime,
+    kubernetes_ingress_v1.ingress_admin_api,
+  ]
+
+  create_duration = "90s"
+}
+
+data "aws_lb" "runtime" {
+  tags = {
+    "ingress.k8s.aws/stack" = "default/runtime-ingress"
+  }
+  depends_on = [time_sleep.wait_for_alb]
+}
+
+data "aws_lb" "admin_api" {
+  tags = {
+    "ingress.k8s.aws/stack" = "default/admin-api-ingress"
+  }
+  depends_on = [time_sleep.wait_for_alb]
+}
+
+resource "aws_route53_record" "runtime" {
+  zone_id = var.route53_zone_id
+  name    = "runtime.swarm.singledigit.team"
+  type    = "A"
+
+  alias {
+    name                   = data.aws_lb.runtime.dns_name
+    zone_id                = data.aws_lb.runtime.zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "api" {
+  zone_id = var.route53_zone_id
+  name    = "api.swarm.singledigit.team"
+  type    = "A"
+
+  alias {
+    name                   = data.aws_lb.admin_api.dns_name
+    zone_id                = data.aws_lb.admin_api.zone_id
+    evaluate_target_health = false
+  }
+}
+
+output "runtime_url" {
+  value = "https://runtime.swarm.singledigit.team"
+}
+
+output "api_url" {
+  value = "https://api.swarm.singledigit.team"
+}
+
+output "acm_certificate_arn" {
+  value       = aws_acm_certificate_validation.swarm_singledigit.certificate_arn
+  description = "ACM certificate ARN for *.swarm.singledigit.team"
+}
+

@@ -18,3 +18,9 @@ variable "openrouter_api_key" {
   default = "REPLACE_ME"
 }
 
+variable "route53_zone_id" {
+  description = "Route 53 hosted zone ID for singledigit.team."
+  type        = string
+  default     = "Z01004903J4JEPQ9IWE8V"
+}
+
