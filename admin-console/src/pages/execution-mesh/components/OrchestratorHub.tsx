@@ -1,4 +1,4 @@
-import { Activity, Network } from 'lucide-react'
+import { Network } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface OrchestratorHubProps {

@@ -5,7 +5,6 @@ interface IngestionQueueProps {
   orders: OrderCard[]
   selectedOrderId?: string | null
   onSelectOrder?: (orderId: string) => void
-  allRunsComplete?: boolean
 }
 
 const statusConfig = {
@@ -117,7 +116,6 @@ export function IngestionQueue({
   orders,
   selectedOrderId,
   onSelectOrder,
-  allRunsComplete,
 }: IngestionQueueProps) {
   // Sort: selected first, then evaluating, then others
   const sortedOrders = [...orders].sort((a, b) => {

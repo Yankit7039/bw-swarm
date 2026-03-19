@@ -228,7 +228,7 @@ export function BulkVisualization() {
                     ? 'bg-emerald-50 border-emerald-200'
                     : o.stage === 'failed'
                     ? 'bg-rose-50 border-rose-200'
-                    : o.stage === 'running'
+                    : o.stage === 'ingestion'
                     ? 'bg-indigo-50 border-indigo-200'
                     : 'bg-slate-50 border-slate-200'
                 }`}
@@ -240,7 +240,7 @@ export function BulkVisualization() {
                   {o.stage === 'failed' && (
                     <AlertCircle className="w-3 h-3 text-rose-500" />
                   )}
-                  {o.stage === 'running' && (
+                  {o.stage === 'ingestion' && (
                     <Clock className="w-3 h-3 text-indigo-500" />
                   )}
                   {o.stage === 'queue' && (
