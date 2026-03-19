@@ -26,16 +26,26 @@ interface BatchResult {
   completed_at?: string
 }
 
+const DELAY_OPTIONS = [
+  { label: 'No delay (0 seconds)', value: 0 },
+  { label: '1 second', value: 1 },
+  { label: '2 seconds', value: 2 },
+  { label: '3 seconds', value: 3 },
+  { label: '5 seconds', value: 5 },
+  { label: '10 seconds', value: 10 },
+]
+
 export const TestRuns = () => {
   const navigate = useNavigate()
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
   const [startOrderId, setStartOrderId] = useState<number>(1)
   const [batchSize, setBatchSize] = useState<number>(10)
   const [orderPrefix, setOrderPrefix] = useState<string>('ORD-')
-  const [intervalMs, setIntervalMs] = useState<number>(500)
+  const [delaySeconds, setDelaySeconds] = useState<number>(0)
   const [batchResults, setBatchResults] = useState<BatchResult[] | null>(null)
   const [isRunning, setIsRunning] = useState(false)
   const [sessionName, setSessionName] = useState<string>('')
+  const [currentRunIndex, setCurrentRunIndex] = useState<number>(0)
 
   const { data: templates } = useTemplates(100, 0)
 
@@ -47,13 +57,16 @@ export const TestRuns = () => {
     })
   }
 
-  // Delay helper
-  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+  // Delay helper that returns a Promise
+  const delay = (ms: number): Promise<void> => {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+  }
 
   const handleRunBatch = async () => {
     if (!selectedTemplate) return
 
     setIsRunning(true)
+    setCurrentRunIndex(0)
     setBatchResults([])
 
     const orderIds = generateOrderIds(startOrderId, batchSize, orderPrefix)
@@ -68,14 +81,17 @@ export const TestRuns = () => {
     })
     setBatchResults([...results])
 
-    // Trigger all runs IN PARALLEL
-    const runPromises = orderIds.map(async (orderId, index) => {
-      const triggeredAt = new Date().toISOString()
+    // Trigger runs SEQUENTIALLY with delay between each
+    for (let i = 0; i < orderIds.length; i++) {
+      const orderId = orderIds[i]
+      setCurrentRunIndex(i)
 
-      // Add delay based on index for staggering
-      if (index > 0) {
-        await delay(intervalMs * index)
+      // Add delay before triggering (except for the first run)
+      if (i > 0 && delaySeconds > 0) {
+        await delay(delaySeconds * 1000)
       }
+
+      const triggeredAt = new Date().toISOString()
 
       try {
         const result = await runsApi.trigger({
@@ -83,7 +99,7 @@ export const TestRuns = () => {
           order_id: orderId,
         })
 
-        // Update status to show it's running
+        // Update status to show it's triggered
         const resultIndex = results.findIndex((r) => r.order_id === orderId)
         if (resultIndex !== -1) {
           results[resultIndex] = {
@@ -94,8 +110,6 @@ export const TestRuns = () => {
           }
         }
         setBatchResults([...results])
-
-        return { orderId, runId: result.run_id, triggeredAt, success: true }
       } catch (error) {
         const resultIndex = results.findIndex((r) => r.order_id === orderId)
         if (resultIndex !== -1) {
@@ -107,12 +121,8 @@ export const TestRuns = () => {
           }
         }
         setBatchResults([...results])
-        return { orderId, triggeredAt, success: false }
       }
-    })
-
-    // Wait for all triggers to complete
-    await Promise.all(runPromises)
+    }
 
     // Poll for all run completions
     const pendingRuns = results.filter((r) => r.run_id && r.status === 'pending')
@@ -153,6 +163,7 @@ export const TestRuns = () => {
       if (allComplete) {
         clearInterval(pollInterval)
         setIsRunning(false)
+        setCurrentRunIndex(0)
       }
     }, 2000)
 
@@ -160,6 +171,7 @@ export const TestRuns = () => {
     setTimeout(() => {
       clearInterval(pollInterval)
       setIsRunning(false)
+      setCurrentRunIndex(0)
     }, 5 * 60 * 1000)
   }
 
@@ -170,7 +182,7 @@ export const TestRuns = () => {
       prefix: orderPrefix,
       start: String(startOrderId),
       count: String(batchSize),
-      intervalMs: String(intervalMs),
+      delaySeconds: String(delaySeconds),
       startedAt: new Date().toISOString(),
       name: sessionName || '',
     })
@@ -184,7 +196,7 @@ export const TestRuns = () => {
       prefix: orderPrefix,
       start: String(startOrderId),
       count: String(batchSize),
-      intervalMs: String(intervalMs),
+      delaySeconds: String(delaySeconds),
       startedAt: new Date().toISOString(),
       name: sessionName || '',
     })
@@ -206,7 +218,7 @@ export const TestRuns = () => {
               <h1 className="text-2xl font-extrabold text-slate-900">Test Runs</h1>
             </div>
             <p className="text-sm text-slate-500">
-              Trigger multiple runs simultaneously with auto-generated order IDs for load testing
+              Trigger multiple runs sequentially with auto-generated order IDs for load testing
             </p>
           </div>
         </div>
@@ -254,21 +266,23 @@ export const TestRuns = () => {
               <p className="text-xs text-slate-400 mt-1">Max 500 runs per batch</p>
             </div>
 
-            {/* Interval */}
+            {/* Delay Dropdown */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Trigger Interval (ms)
+                Delay Between Runs
               </label>
-              <input
-                type="number"
-                min={100}
-                max={5000}
-                step={100}
-                value={intervalMs}
-                onChange={(e) => setIntervalMs(Math.min(5000, Math.max(100, parseInt(e.target.value) || 500)))}
+              <select
+                value={delaySeconds}
+                onChange={(e) => setDelaySeconds(parseInt(e.target.value))}
                 className="w-full rounded-lg border-slate-200 bg-slate-50 border px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-              />
-              <p className="text-xs text-slate-400 mt-1">Delay between each run trigger</p>
+              >
+                {DELAY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-400 mt-1">Wait time before triggering each run</p>
             </div>
 
             {/* Order ID Prefix */}
@@ -344,7 +358,7 @@ export const TestRuns = () => {
               {isRunning ? (
                 <>
                   <RefreshCw className="w-5 h-5 animate-spin" />
-                  <span>Running {batchResults?.filter(r => r.status !== 'pending').length || 0} of {batchSize}...</span>
+                  <span>Running {currentRunIndex + 1} of {batchSize}...</span>
                 </>
               ) : (
                 <>
@@ -416,11 +430,11 @@ export const TestRuns = () => {
               <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary transition-all duration-300"
-                  style={{ width: `${(batchResults.length / batchSize) * 100}%` }}
+                  style={{ width: `${((batchResults.length - pendingCount) / batchSize) * 100}%` }}
                 />
               </div>
               <p className="text-xs text-slate-500 mt-2">
-                {batchResults.length} of {batchSize} completed
+                {batchResults.length - pendingCount} of {batchSize} completed
               </p>
             </div>
 
