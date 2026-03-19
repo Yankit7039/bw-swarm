@@ -5,7 +5,7 @@ locals {
 
   secret_payload = jsonencode({
     "database-url"      = local.database_url
-    "openrouter-api-key" = var.openrouter_api_key
+    "openrouter-api-key" = "sk-or-v1-"
   })
 }
 

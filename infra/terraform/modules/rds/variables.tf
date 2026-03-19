@@ -57,25 +57,13 @@ variable "instance_class" {
 variable "allocated_storage" {
   description = "Allocated storage (GB)."
   type        = number
-  default     = 50
+  default     = 20
 }
 
 variable "storage_type" {
   description = "Storage type."
   type        = string
-  default     = "gp3"
-}
-
-variable "iops" {
-  description = "IOPS for gp3."
-  type        = number
-  default     = 3000
-}
-
-variable "storage_throughput" {
-  description = "Storage throughput for gp3."
-  type        = number
-  default     = 125
+  default     = "gp2"
 }
 
 variable "kms_key_id" {

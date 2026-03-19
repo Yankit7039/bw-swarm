@@ -56,8 +56,6 @@ resource "aws_db_instance" "this" {
   allocated_storage = var.allocated_storage
 
   storage_type      = var.storage_type
-  iops              = var.iops
-  storage_throughput = var.storage_throughput
 
   storage_encrypted = true
   kms_key_id        = var.kms_key_id
