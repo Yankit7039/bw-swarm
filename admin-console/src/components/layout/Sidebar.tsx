@@ -5,7 +5,7 @@ import {
   Database,
   Zap,
   Hexagon,
-  LogOut,
+  // LogOut,
 } from 'lucide-react'
 
 const navItems = [
@@ -60,9 +60,9 @@ export const Sidebar = () => {
             <p className="text-sm font-bold text-slate-900 truncate">Admin User</p>
             <p className="text-[11px] text-slate-500 truncate">admin@swarm.ai</p>
           </div>
-          <button className="text-slate-400 hover:text-slate-600 transition-colors">
+          {/* <button className="text-slate-400 hover:text-slate-600 transition-colors">
             <LogOut className="w-4 h-4" />
-          </button>
+          </button> */}
         </div>
       </div>
     </aside>

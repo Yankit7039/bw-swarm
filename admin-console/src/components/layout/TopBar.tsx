@@ -1,10 +1,19 @@
-import { Search, Bell, HelpCircle, Menu } from 'lucide-react'
+import { Search, Bell, HelpCircle, Menu, LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 interface TopBarProps {
   onMenuClick?: () => void
 }
 
 export const TopBar = ({ onMenuClick }: TopBarProps) => {
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin-console-auth')
+    localStorage.removeItem('admin-console-user')
+    navigate('/login')
+  }
+
   return (
     <header className="h-16 flex items-center justify-between bg-white border-b border-slate-200 px-6 shrink-0">
       {/* Left side - Mobile menu & Search */}
@@ -37,6 +46,13 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
         </button>
         <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
           <HelpCircle className="w-5 h-5" />
+        </button>
+        <button 
+          onClick={handleLogout}
+          className="p-2 text-slate-500 hover:bg-slate-100 hover:text-rose-600 rounded-lg transition-colors"
+          title="Logout"
+        >
+          <LogOut className="w-5 h-5" />
         </button>
         {/* <div className="h-6 w-px bg-slate-200 mx-1" /> */}
         {/* <div className="flex items-center gap-3 pl-2">
