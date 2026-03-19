@@ -38,10 +38,10 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
         <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
           <HelpCircle className="w-5 h-5" />
         </button>
-        <div className="h-6 w-px bg-slate-200 mx-1" />
-        <div className="flex items-center gap-3 pl-2">
+        {/* <div className="h-6 w-px bg-slate-200 mx-1" /> */}
+        {/* <div className="flex items-center gap-3 pl-2">
           <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded">V2.4.0</span>
-        </div>
+        </div> */}
       </div>
     </header>
   )

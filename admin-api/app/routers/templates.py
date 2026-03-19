@@ -11,7 +11,7 @@ router = APIRouter(prefix="/templates", tags=["templates"])
 
 @router.get("/", response_model=List[Template])
 async def list_templates(
-  limit: int = Query(50, ge=1, le=200),
+  limit: int = Query(50, ge=1, le=500),
   offset: int = Query(0, ge=0),
 ) -> list[Template]:
   rows = await db.list_templates(limit=limit, offset=offset)

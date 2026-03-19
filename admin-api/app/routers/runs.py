@@ -15,7 +15,7 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 async def list_runs(
   template_id: str | None = None,
   status: str | None = None,
-  limit: int = Query(50, ge=1, le=200),
+  limit: int = Query(50, ge=1, le=500),
   offset: int = Query(0, ge=0),
 ) -> list[Run]:
   rows = await db.list_runs(

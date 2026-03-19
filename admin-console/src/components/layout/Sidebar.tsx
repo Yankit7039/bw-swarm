@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Layers,
   Database,
+  Zap,
   Hexagon,
   LogOut,
 } from 'lucide-react'
@@ -11,6 +12,7 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/templates', icon: Layers, label: 'Templates' },
   { to: '/runs', icon: Database, label: 'Runs' },
+  { to: '/test-runs', icon: Zap, label: 'Test Runs' },
   // { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
