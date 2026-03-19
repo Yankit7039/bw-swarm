@@ -171,7 +171,7 @@ export const Dashboard = () => {
   // Fetch recent runs
   const { data: runsData } = useQuery({
     queryKey: ['runs-dashboard'],
-    queryFn: () => runsApi.list({ limit: 50 }),
+    queryFn: () => runsApi.list({ limit: 500 }),
     refetchInterval: 5000,
   })
 
@@ -213,12 +213,6 @@ export const Dashboard = () => {
     return new Date(r.created_at) >= last24h
   })
   const completedRuns = runsLast24h.filter(r => r.status === 'completed')
-  const successRate = runsLast24h.length > 0
-    ? ((completedRuns.length / runsLast24h.length) * 100).toFixed(1)
-    : '98.2'
-  const successChange = runsLast24h.length > 0
-    ? (parseFloat(successRate) - 98.3).toFixed(1)
-    : '-0.1'
   
   // Templates in use
   const uniqueTemplates = new Set(runs.map(r => r.template_id)).size
@@ -241,11 +235,6 @@ export const Dashboard = () => {
       }).length
       
       data.push(count)
-    }
-    
-    // If no data, generate some sample data for visual appeal
-    if (data.every(d => d === 0)) {
-      return [2, 5, 3, 8, 12, 15, 10, 8, 6, 9, 14, 18, 22, 20, 16, 12, 8, 6, 4, 7, 11, 9, 5, 3]
     }
     
     return data
@@ -368,10 +357,10 @@ export const Dashboard = () => {
               iconColor="text-primary"
             />
             <StatCard
-              label="Success Rate"
-              value={`${successRate}%`}
-              change={`${parseFloat(successChange) > 0 ? '+' : ''}${successChange}%`}
-              changeType={parseFloat(successChange) >= 0 ? 'up' : 'down'}
+              label="Successful Runs"
+              value={completedRuns.length.toString()}
+              change={`${runsLast24h.length > 0 ? Math.round((completedRuns.length / runsLast24h.length) * 100) : 0}%`}
+              changeType="neutral"
               icon={CheckCircle}
               iconBg="bg-emerald-100"
               iconColor="text-emerald-600"
