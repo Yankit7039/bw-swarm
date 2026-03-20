@@ -23,7 +23,7 @@ export const TopBar = ({
   }
 
   return (
-    <header className="h-16 flex items-center justify-between bg-white border-b border-slate-200 px-4 sm:px-6 shrink-0">
+    <header className="sticky top-0 z-40 h-16 flex items-center justify-between bg-white/95 backdrop-blur-xl border-b border-slate-200 px-4 sm:px-6 shrink-0">
       <div className="flex items-center gap-3 sm:gap-4 min-w-0">
         <button
           type="button"

@@ -75,7 +75,7 @@ export const Layout = ({ children }: LayoutProps) => {
       )}
 
       <div
-        className={`flex-1 flex flex-col min-w-0 overflow-hidden transition-[padding] duration-200 ease-out ${
+        className={`flex-1 flex flex-col min-w-0 h-screen overflow-y-auto transition-[padding] duration-200 ease-out ${
           isLg ? (desktopCollapsed ? 'lg:pl-[72px]' : 'lg:pl-64') : ''
         }`}
       >
@@ -84,7 +84,7 @@ export const Layout = ({ children }: LayoutProps) => {
           sidebarCollapsed={isLg && desktopCollapsed}
           mobileMenuOpen={!isLg && mobileOpen}
         />
-        <main className="flex-1 overflow-y-auto bg-slate-50">{children}</main>
+        <main className="flex-1 bg-slate-50">{children}</main>
       </div>
     </div>
   )
