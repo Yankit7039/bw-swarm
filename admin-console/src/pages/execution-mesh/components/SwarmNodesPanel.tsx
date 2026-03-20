@@ -282,7 +282,7 @@ export function SwarmNodesPanel({
             </p>
           )}
         </div>
-        <Settings className="w-5 h-5 text-slate-400 hover:text-indigo-600 cursor-pointer transition-colors" />
+        {/* <Settings className="w-5 h-5 text-slate-400 hover:text-indigo-600 cursor-pointer transition-colors" /> */}
       </div>
 
       {/* Clusters */}

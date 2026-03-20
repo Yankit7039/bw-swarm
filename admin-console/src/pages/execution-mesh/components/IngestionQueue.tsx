@@ -1,4 +1,4 @@
-import { Activity, AlertCircle, CheckCircle, Clock, Loader2, PlusCircle } from 'lucide-react'
+import { Activity, AlertCircle, CheckCircle, Clock, Loader2,  } from 'lucide-react'
 import type { OrderCard } from '../../../types/executionMesh'
 
 interface IngestionQueueProps {
@@ -191,12 +191,12 @@ export function IngestionQueue({
       </div>
 
       {/* Manual Ingest Button */}
-      <div className="pt-4 border-t border-slate-200/60 mt-3">
+      {/* <div className="pt-4 border-t border-slate-200/60 mt-3">
         <button className="w-full flex items-center justify-center gap-2 bg-slate-200/50 text-indigo-600 py-3 rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">
           <PlusCircle className="w-4 h-4" />
           Manual Ingest
         </button>
-      </div>
+      </div> */}
     </div>
   )
 }

@@ -1,18 +1,6 @@
-import { useState } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
-import {
-  Play,
-  Filter,
-  ChevronDown,
-  Calendar,
-  ArrowRight,
-  RotateCcw,
-  Lock,
-  Check,
-  X,
-  Network,
-} from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { ArrowRight, RotateCcw, Lock, Check, X } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { runsApi } from '../api/runs'
 import { useTemplates } from '../hooks/useTemplates'
@@ -204,11 +192,9 @@ const RunCard = ({ run, templateName }: { run: RunWithProgress; templateName?: s
 const ITEMS_PER_PAGE = 10
 
 export const Runs = () => {
-  const navigate = useNavigate()
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('')
-  const [orderId, setOrderId] = useState<string>('ORD-001')
-  const [statusFilter] = useState<string>('all')
-  const [currentPage, setCurrentPage] = useState<number>(1)
+  const selectedTemplate = ''
+  const statusFilter = 'all'
+  const currentPage = 1
 
   const { data: templates } = useTemplates(100, 0)
 
@@ -224,16 +210,6 @@ export const Runs = () => {
     refetchInterval: 3000,
   })
 
-  const triggerMutation = useMutation({
-    mutationFn: () => {
-      if (!selectedTemplate || !orderId.trim()) throw new Error('Missing required fields')
-      return runsApi.trigger({ template_id: selectedTemplate, order_id: orderId.trim() })
-    },
-    onSuccess: (data) => {
-      navigate(`/runs/${data.run_id}`)
-    },
-  })
-
   const items: RunWithProgress[] = runs?.data ?? []
 
   const getTemplateName = (templateId: string) => {
@@ -246,10 +222,10 @@ export const Runs = () => {
         {/* Control Bar */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 mb-1">Execution Runs</h1>
-            <p className="text-sm text-slate-500">Monitor and manage your active swarm processes</p>
+            <h1 className="text-2xl font-extrabold text-slate-900 mb-1">Observe</h1>
+            <p className="text-sm text-slate-500">Real-time neural telemetry and orchestration tracing.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          {/* <div className="flex flex-wrap gap-2">
             <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-medium shadow-sm hover:border-primary/30 transition-colors">
               <Filter className="w-4 h-4" />
               All Statuses
@@ -272,11 +248,11 @@ export const Runs = () => {
               Today
               <ChevronDown className="w-4 h-4" />
             </button>
-          </div>
+          </div> */}
         </div>
 
         {/* Trigger Run Form */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 mb-8 shadow-sm">
+        {/* <div className="bg-white border border-slate-200 rounded-xl p-5 mb-8 shadow-sm">
           <div className="flex flex-col md:flex-row items-end gap-4">
             <div className="flex-1 w-full">
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Template</label>
@@ -324,7 +300,7 @@ export const Runs = () => {
           <p className="text-xs text-slate-500 mt-3">
             Supports manual order IDs like OH-1; the numeric part maps deterministically to scenarios via n % 5.
           </p>
-        </div>
+        </div> */}
 
         {/* Execution List */}
         <div className="space-y-4">
@@ -347,7 +323,7 @@ export const Runs = () => {
         </div>
 
         {/* Pagination/Footer */}
-        <div className="mt-10 flex items-center justify-between border-t border-slate-200 pt-6">
+        {/* <div className="mt-10 flex items-center justify-between border-t border-slate-200 pt-6">
           <p className="text-sm text-slate-500">
             Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, runs?.pagination?.total || 0)} of {runs?.pagination?.total || 0} runs
           </p>
@@ -367,10 +343,10 @@ export const Runs = () => {
               Next
             </button>
           </div>
-        </div>
+        </div> */}
 
         {/* Footer */}
-        <footer className="mt-auto py-6 border-t border-slate-200 bg-white -mx-6 lg:-mx-10 px-6 lg:px-10 mt-8">
+        {/* <footer className="mt-auto py-6 border-t border-slate-200 bg-white -mx-6 lg:-mx-10 px-6 lg:px-10 mt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
               <Network className="w-4 h-4 text-primary" />
@@ -382,7 +358,7 @@ export const Runs = () => {
               <a className="text-slate-400 hover:text-primary text-xs font-bold transition-colors" href="#">API Keys</a>
             </div>
           </div>
-        </footer>
+        </footer> */}
       </div>
     </Layout>
   )

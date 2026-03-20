@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Lock, User, ArrowRight, Zap } from 'lucide-react'
+import { Lock, User, ArrowRight } from 'lucide-react'
 
 const VALID_USERNAME = 'admin'
 const VALID_PASSWORD = 'admin1234'
@@ -34,8 +34,14 @@ export const Login = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl mb-4 shadow-lg shadow-indigo-200">
-            <Zap className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center mb-4 rounded-2xl shadow-lg shadow-slate-200 overflow-hidden">
+            <img
+              src="/favicon.svg"
+              alt="Swarm"
+              width={64}
+              height={64}
+              className="w-16 h-16"
+            />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Swarm Admin</h1>
           <p className="text-slate-500 mt-1">Sign in to manage your agents</p>

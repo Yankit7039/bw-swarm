@@ -124,14 +124,14 @@ export function OrchestratorHub({ isActive, currentAction, activeConnections }: 
           {/* Status below hub */}
           <div className="absolute -bottom-20 flex flex-col items-center gap-1 w-64 text-center">
             <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-indigo-600">
-              {isActive ? 'Orchestrator Active' : 'Ready'}
+              {isActive ? 'Orchestrator' : 'Ready'}
             </span>
             <div className="flex items-center gap-2 bg-white/60 px-4 py-2 rounded-full border border-slate-200/40 shadow-sm">
               {isActive && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
               <span className="font-mono text-sm text-slate-700">
                 {isActive ? (
                   <>
-                    Calling <span className="text-emerald-600 font-bold">{currentAction}</span>
+                    <span className="text-emerald-600 font-bold">{currentAction}</span>
                   </>
                 ) : (
                   currentAction
@@ -143,7 +143,7 @@ export function OrchestratorHub({ isActive, currentAction, activeConnections }: 
       </div>
 
       {/* Dashboard Stats Floating - Bottom Left */}
-      <div className="absolute bottom-12 left-12 grid grid-cols-2 gap-4 z-20">
+      {/* <div className="absolute bottom-12 left-12 grid grid-cols-2 gap-4 z-20">
         <div className="bg-white/70 backdrop-blur-md p-4 rounded-xl border border-slate-200/60 shadow-sm w-40">
           <div className="text-[10px] uppercase text-slate-500 mb-1 font-bold tracking-wider">Active Orders</div>
           <div className="text-3xl font-bold text-indigo-600">{activeConnections.length > 0 ? '1' : '0'}</div>
@@ -156,7 +156,7 @@ export function OrchestratorHub({ isActive, currentAction, activeConnections }: 
               : 'Idle'}
           </div>
         </div>
-      </div>
+      </div> */}
 
       <style>{`
         @keyframes spin {
