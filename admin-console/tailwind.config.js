@@ -9,6 +9,7 @@ export default {
       fontFamily: {
         headline: ['Manrope', 'Inter', 'system-ui', 'sans-serif'],
         body: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
         primary: {
