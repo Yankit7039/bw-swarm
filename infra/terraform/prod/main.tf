@@ -60,13 +60,15 @@ module "vpc" {
   region      = var.region
   name_prefix = local.name_prefix
 
-  vpc_cidr            = "10.0.0.0/16"
+  vpc_cidr             = "10.0.0.0/16"
   public_subnet_cidrs  = ["10.0.0.0/24", "10.0.1.0/24"]
   private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
 }
 
 module "ecr" {
   source = "../modules/ecr"
+
+  name_prefix = var.environment_prefix == "swarm-prod" ? "" : var.environment_prefix
 
   repository_names = [
     "stuck-order-adk",
@@ -88,12 +90,12 @@ module "eks" {
   platform_version   = "eks.66"
   service_ipv4_cidr  = "172.20.0.0/16"
 
-  node_group_name            = "${local.name_prefix}-managed-ng"
-  node_instance_types       = ["t3.medium"]
-  node_desired_size         = 2
-  node_min_size             = 1
-  node_max_size             = 4
-  node_disk_size            = 20
+  node_group_name             = "${local.name_prefix}-managed-ng"
+  node_instance_types         = ["t3.medium"]
+  node_desired_size           = 2
+  node_min_size               = 1
+  node_max_size               = 4
+  node_disk_size              = 20
   node_update_max_unavailable = 1
 }
 
@@ -122,14 +124,14 @@ module "rds" {
   private_subnet_ids = module.vpc.private_subnet_ids
 
   eks_node_security_group_id = module.eks.node_security_group_id
-  db_password              = random_password.db.result
+  db_password                = random_password.db.result
 }
 
 module "secrets" {
   source = "../modules/secrets"
 
-  name_prefix = local.name_prefix
-  recovery_window_in_days = 30
+  name_prefix             = local.name_prefix
+  recovery_window_in_days = 0
 
   openrouter_api_key = var.openrouter_api_key
   db_endpoint        = module.rds.rds_endpoint
@@ -174,17 +176,9 @@ data "aws_iam_policy_document" "irsa_assume_external_secrets" {
   }
 }
 
-data "http" "alb_controller_policy" {
-  url = "https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json"
-
-  request_headers = {
-    Accept = "application/json"
-  }
-}
-
 resource "aws_iam_policy" "alb_controller" {
   name   = "${local.name_prefix}-alb-controller-policy"
-  policy = data.http.alb_controller_policy.response_body
+  policy = file("${path.module}/iam/aws-load-balancer-controller-iam-policy.json")
 }
 
 resource "aws_iam_policy" "external_secrets" {
@@ -229,14 +223,14 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   create_namespace = false
 
-  atomic             = false
+  atomic            = false
   cleanup_on_fail   = false
   dependency_update = false
 
   render_subchart_notes = true
 
-  wait    = true
-  timeout = 300
+  wait      = true
+  timeout   = 300
   skip_crds = false
 
   set {
@@ -270,6 +264,25 @@ resource "helm_release" "aws_load_balancer_controller" {
   }
 }
 
+resource "null_resource" "wait_for_alb_webhook" {
+  triggers = {
+    helm_release_id = helm_release.aws_load_balancer_controller.id
+  }
+
+  depends_on = [helm_release.aws_load_balancer_controller]
+
+  provisioner "local-exec" {
+    working_dir = path.module
+    command     = "python3 ${path.module}/scripts/wait_for_webhook.py || python ${path.module}/scripts/wait_for_webhook.py"
+    environment = {
+      CLUSTER_NAME = module.eks.cluster_name
+      REGION       = var.region
+      NAMESPACE    = "kube-system"
+      DEPLOYMENT   = "aws-load-balancer-controller"
+    }
+  }
+}
+
 resource "helm_release" "external_secrets" {
   name       = "external-secrets"
   namespace  = "external-secrets"
@@ -279,16 +292,19 @@ resource "helm_release" "external_secrets" {
 
   create_namespace = false
 
-  depends_on = [kubernetes_namespace.external_secrets]
+  depends_on = [
+    kubernetes_namespace.external_secrets,
+    null_resource.wait_for_alb_webhook,
+  ]
 
-  atomic             = false
+  atomic            = false
   cleanup_on_fail   = false
   dependency_update = false
 
   render_subchart_notes = true
 
-  wait    = true
-  timeout = 300
+  wait      = true
+  timeout   = 300
   skip_crds = false
 
   set {
@@ -312,9 +328,9 @@ resource "helm_release" "external_secrets" {
   }
 }
 
-# --- ACM certificate for *.swarm.singledigit.team (ap-southeast-1) ---
+# --- ACM certificate for *.${var.subdomain}.singledigit.team ---
 resource "aws_acm_certificate" "swarm_singledigit" {
-  domain_name       = "*.swarm.singledigit.team"
+  domain_name       = "*.${var.subdomain}.singledigit.team"
   validation_method = "DNS"
 
   lifecycle {
@@ -350,12 +366,13 @@ resource "kubernetes_ingress_v1" "ingress_runtime" {
     name      = "runtime-ingress"
     namespace = "default"
     annotations = {
-      "alb.ingress.kubernetes.io/scheme"           = "internet-facing"
-      "alb.ingress.kubernetes.io/target-type"      = "ip"
-      "alb.ingress.kubernetes.io/healthcheck-path"  = "/health"
-      "alb.ingress.kubernetes.io/listen-ports"     = "[{\"HTTP\": 80}, {\"HTTPS\": 443}]"
-      "alb.ingress.kubernetes.io/ssl-redirect"     = "443"
-      "alb.ingress.kubernetes.io/certificate-arn"  = aws_acm_certificate_validation.swarm_singledigit.certificate_arn
+      "kubernetes.io/ingress.class"                    = "alb"
+      "alb.ingress.kubernetes.io/scheme"              = "internet-facing"
+      "alb.ingress.kubernetes.io/target-type"          = "ip"
+      "alb.ingress.kubernetes.io/listen-ports"         = "[{\"HTTP\": 80}, {\"HTTPS\": 443}]"
+      "alb.ingress.kubernetes.io/ssl-redirect"         = "443"
+      "alb.ingress.kubernetes.io/certificate-arn"      = aws_acm_certificate_validation.swarm_singledigit.certificate_arn
+      "alb.ingress.kubernetes.io/healthcheck-path"    = "/health"
     }
   }
 
@@ -379,7 +396,13 @@ resource "kubernetes_ingress_v1" "ingress_runtime" {
     }
   }
 
-  depends_on = [aws_acm_certificate_validation.swarm_singledigit]
+  wait_for_load_balancer = true
+
+  depends_on = [
+    aws_acm_certificate_validation.swarm_singledigit,
+    helm_release.aws_load_balancer_controller,
+    null_resource.wait_for_alb_webhook,
+  ]
 }
 
 resource "kubernetes_ingress_v1" "ingress_admin_api" {
@@ -387,12 +410,13 @@ resource "kubernetes_ingress_v1" "ingress_admin_api" {
     name      = "admin-api-ingress"
     namespace = "default"
     annotations = {
-      "alb.ingress.kubernetes.io/scheme"           = "internet-facing"
-      "alb.ingress.kubernetes.io/target-type"      = "ip"
-      "alb.ingress.kubernetes.io/healthcheck-path"  = "/health"
-      "alb.ingress.kubernetes.io/listen-ports"     = "[{\"HTTP\": 80}, {\"HTTPS\": 443}]"
-      "alb.ingress.kubernetes.io/ssl-redirect"     = "443"
-      "alb.ingress.kubernetes.io/certificate-arn"  = aws_acm_certificate_validation.swarm_singledigit.certificate_arn
+      "kubernetes.io/ingress.class"                    = "alb"
+      "alb.ingress.kubernetes.io/scheme"              = "internet-facing"
+      "alb.ingress.kubernetes.io/target-type"          = "ip"
+      "alb.ingress.kubernetes.io/listen-ports"         = "[{\"HTTP\": 80}, {\"HTTPS\": 443}]"
+      "alb.ingress.kubernetes.io/ssl-redirect"         = "443"
+      "alb.ingress.kubernetes.io/certificate-arn"      = aws_acm_certificate_validation.swarm_singledigit.certificate_arn
+      "alb.ingress.kubernetes.io/healthcheck-path"    = "/health"
     }
   }
 
@@ -416,67 +440,41 @@ resource "kubernetes_ingress_v1" "ingress_admin_api" {
     }
   }
 
-  depends_on = [aws_acm_certificate_validation.swarm_singledigit]
-}
+  wait_for_load_balancer = true
 
-resource "time_sleep" "wait_for_alb" {
   depends_on = [
+    aws_acm_certificate_validation.swarm_singledigit,
     helm_release.aws_load_balancer_controller,
-    kubernetes_ingress_v1.ingress_runtime,
-    kubernetes_ingress_v1.ingress_admin_api,
+    null_resource.wait_for_alb_webhook,
   ]
-
-  create_duration = "90s"
-}
-
-data "aws_lb" "runtime" {
-  tags = {
-    "ingress.k8s.aws/stack" = "default/runtime-ingress"
-  }
-  depends_on = [time_sleep.wait_for_alb]
-}
-
-data "aws_lb" "admin_api" {
-  tags = {
-    "ingress.k8s.aws/stack" = "default/admin-api-ingress"
-  }
-  depends_on = [time_sleep.wait_for_alb]
 }
 
 resource "aws_route53_record" "runtime" {
   zone_id = var.route53_zone_id
-  name    = "runtime.swarm.singledigit.team"
+  name    = "runtime.${var.subdomain}.singledigit.team"
   type    = "A"
 
   alias {
-    name                   = data.aws_lb.runtime.dns_name
-    zone_id                = data.aws_lb.runtime.zone_id
+    name                   = kubernetes_ingress_v1.ingress_runtime.status[0].load_balancer[0].ingress[0].hostname
+    zone_id                = "Z1LMS91P8CMLE5"
     evaluate_target_health = false
   }
 }
 
 resource "aws_route53_record" "api" {
   zone_id = var.route53_zone_id
-  name    = "api.swarm.singledigit.team"
+  name    = "api.${var.subdomain}.singledigit.team"
   type    = "A"
 
   alias {
-    name                   = data.aws_lb.admin_api.dns_name
-    zone_id                = data.aws_lb.admin_api.zone_id
+    name                   = kubernetes_ingress_v1.ingress_admin_api.status[0].load_balancer[0].ingress[0].hostname
+    zone_id                = "Z1LMS91P8CMLE5"
     evaluate_target_health = false
   }
 }
 
-output "runtime_url" {
-  value = "https://runtime.swarm.singledigit.team"
-}
-
-output "api_url" {
-  value = "https://api.swarm.singledigit.team"
-}
-
 output "acm_certificate_arn" {
   value       = aws_acm_certificate_validation.swarm_singledigit.certificate_arn
-  description = "ACM certificate ARN for *.swarm.singledigit.team"
+  description = "ACM certificate ARN for wildcard cert under singledigit.team (var.subdomain)"
 }
 

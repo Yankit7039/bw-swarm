@@ -24,3 +24,8 @@ variable "route53_zone_id" {
   default     = "Z01004903J4JEPQ9IWE8V"
 }
 
+variable "subdomain" {
+  description = "Subdomain used for Route 53 DNS records e.g. swarm for prod, dev for testing"
+  type        = string
+  default     = "swarm"
+}

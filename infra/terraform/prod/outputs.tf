@@ -28,3 +28,10 @@ output "adk_secrets_arn" {
   value       = module.secrets.secret_arn
 }
 
+output "runtime_url" {
+  value = "https://runtime.${var.subdomain}.singledigit.team"
+}
+
+output "api_url" {
+  value = "https://api.${var.subdomain}.singledigit.team"
+}
