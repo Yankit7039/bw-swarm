@@ -32,6 +32,7 @@ export const Layout = ({ children }: LayoutProps) => {
   }, [isLg, desktopCollapsed, setCollapsedPersist])
 
   const closeMobile = useCallback(() => setMobileOpen(false), [])
+  const openMobile = useCallback(() => setMobileOpen(true), [])
 
   useEffect(() => {
     if (!mobileOpen) return
@@ -62,6 +63,7 @@ export const Layout = ({ children }: LayoutProps) => {
         mobileOpen={mobileOpen}
         isLargeScreen={isLg}
         onCloseMobile={closeMobile}
+        onToggleSidebar={toggleSidebar}
       />
 
       {/* Mobile overlay */}
@@ -79,11 +81,7 @@ export const Layout = ({ children }: LayoutProps) => {
           isLg ? (desktopCollapsed ? 'lg:pl-[72px]' : 'lg:pl-64') : ''
         }`}
       >
-        <TopBar
-          onToggleSidebar={toggleSidebar}
-          sidebarCollapsed={isLg && desktopCollapsed}
-          mobileMenuOpen={!isLg && mobileOpen}
-        />
+        <TopBar onOpenMobileSidebar={openMobile} />
         <main className="flex-1 bg-slate-50">{children}</main>
       </div>
     </div>

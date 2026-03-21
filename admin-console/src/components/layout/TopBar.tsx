@@ -1,19 +1,11 @@
-import { Search, Bell, HelpCircle, Menu, X, ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react'
+import { Bell, HelpCircle, LogOut, Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 interface TopBarProps {
-  onToggleSidebar: () => void
-  /** Large screens: sidebar is collapsed to icon rail */
-  sidebarCollapsed?: boolean
-  /** Small screens: mobile drawer is open */
-  mobileMenuOpen?: boolean
+  onOpenMobileSidebar?: () => void
 }
 
-export const TopBar = ({
-  onToggleSidebar,
-  sidebarCollapsed = false,
-  mobileMenuOpen = false,
-}: TopBarProps) => {
+export const TopBar = ({ onOpenMobileSidebar }: TopBarProps) => {
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -25,38 +17,15 @@ export const TopBar = ({
   return (
     <header className="sticky top-0 z-40 h-16 flex items-center justify-between bg-white/95 backdrop-blur-xl border-b border-slate-200 px-4 sm:px-6 shrink-0">
       <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+        {/* Mobile menu button */}
         <button
           type="button"
-          onClick={onToggleSidebar}
-          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
-          aria-expanded={mobileMenuOpen}
-          aria-label={mobileMenuOpen ? 'Close sidebar' : sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onClick={onOpenMobileSidebar}
+          className="lg:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
+          aria-label="Open menu"
         >
-          {/* Mobile: menu / close */}
-          <span className="lg:hidden">
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </span>
-          {/* Desktop: collapse / expand */}
-          <span className="hidden lg:inline-flex">
-            {sidebarCollapsed ? (
-              <ChevronsRight className="w-6 h-6" />
-            ) : (
-              <ChevronsLeft className="w-6 h-6" />
-            )}
-          </span>
+          <Menu className="w-6 h-6" />
         </button>
-        <div className="hidden sm:block min-w-0">
-          <div className="flex w-52 sm:w-64 items-center rounded-lg bg-slate-100 border border-slate-200 h-9">
-            <div className="text-slate-400 pl-3 flex items-center shrink-0">
-              <Search className="w-4 h-4" />
-            </div>
-            <input
-              className="w-full min-w-0 bg-transparent border-none focus:ring-0 text-sm placeholder:text-slate-500 outline-none"
-              placeholder="Search resources..."
-              type="text"
-            />
-          </div>
-        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4 shrink-0">

@@ -8,7 +8,7 @@ import {
   SlidersHorizontal,
   BarChart3,
   Layers,
-  Eye,
+  // Eye,
   Network,
   Zap,
 } from 'lucide-react'
@@ -221,13 +221,13 @@ export const TestRuns = () => {
   const errorCount = batchResults?.filter((r) => r.status === 'error').length || 0
   const pendingCount = batchResults?.filter((r) => r.status === 'pending').length || 0
 
-  const previewIds = generateOrderIds(startOrderId, Math.min(10, batchSize), orderPrefix)
-  const moreCount = Math.max(0, batchSize - 10)
-  const completedRuns = successCount + errorCount
-  const healthPct =
-    batchResults && batchResults.length > 0
-      ? Math.round((completedRuns / batchResults.length) * 100)
-      : 72
+  // const previewIds = generateOrderIds(startOrderId, Math.min(10, batchSize), orderPrefix)
+  // const moreCount = Math.max(0, batchSize - 10)
+  // const completedRuns = successCount + errorCount
+  // const healthPct =
+  //   batchResults && batchResults.length > 0
+  //     ? Math.round((completedRuns / batchResults.length) * 100)
+  //     : 72
 
   const labelClass = `block font-body text-sm font-semibold ${c.onSurfaceVariant}`
 
@@ -238,7 +238,8 @@ export const TestRuns = () => {
           {/* Page header */}
           <div className="mb-10">
             <h2 className={`font-headline text-3xl sm:text-4xl font-extrabold tracking-tight mb-2 ${c.onSurface}`}>
-              Batch Configuration
+              {/* Batch Configuration */}
+              Test Runs
             </h2>
             <p className={`${c.onSurfaceVariant} text-sm sm:text-base max-w-2xl leading-relaxed`}>
               Define your test parameters and orchestrate high-precision swarms. Every run is audited for performance and
@@ -408,7 +409,7 @@ export const TestRuns = () => {
             </div>
 
             {/* Sidebar: preview + health */}
-            <div className="col-span-12 lg:col-span-4 flex flex-col gap-8">
+            {/* <div className="col-span-12 lg:col-span-4 flex flex-col gap-8">
               <div className={`${c.surfaceLow} rounded-[1.5rem] p-6 flex-1 border ${c.outlineVariant}`}>
                 <h3 className="font-headline text-lg font-bold mb-4 flex items-center gap-2">
                   <Eye className={`w-5 h-5 ${c.primary}`} />
@@ -472,7 +473,7 @@ export const TestRuns = () => {
                   </p>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Recent run history */}
             {/* <div className="col-span-12 mt-2">

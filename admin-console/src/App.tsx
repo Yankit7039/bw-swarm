@@ -13,6 +13,7 @@ import { RunDetail } from './pages/RunDetail'
 import { TestRuns } from './pages/TestRuns'
 import { BulkVisualization } from './pages/BulkVisualization'
 import { ExecutionMeshViz } from './pages/execution-mesh/ExecutionMeshViz'
+import { TemplateDetail } from './pages/TemplateDetail'
 
 function App() {
   // Initialize SSE connection
@@ -27,6 +28,7 @@ function App() {
       <Route path="/" element={<AuthGuard><Dashboard /></AuthGuard>} />
       <Route path="/templates" element={<AuthGuard><Templates /></AuthGuard>} />
       <Route path="/templates/new" element={<AuthGuard><TemplateBuilder /></AuthGuard>} />
+      <Route path="/templates/:id" element={<AuthGuard><TemplateDetail /></AuthGuard>} />
       <Route path="/runs" element={<AuthGuard><Runs /></AuthGuard>} />
       <Route path="/runs/:runId" element={<AuthGuard><RunDetail /></AuthGuard>} />
       <Route path="/test-runs" element={<AuthGuard><TestRuns /></AuthGuard>} />

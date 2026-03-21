@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Layers, Database, Zap,  } from 'lucide-react'
+import { LayoutDashboard, Layers, Database, Zap, PanelLeft, X } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -14,6 +14,7 @@ interface SidebarProps {
   mobileOpen: boolean
   isLargeScreen: boolean
   onCloseMobile: () => void
+  onToggleSidebar: () => void
 }
 
 export const Sidebar = ({
@@ -21,6 +22,7 @@ export const Sidebar = ({
   mobileOpen,
   isLargeScreen,
   onCloseMobile,
+  onToggleSidebar,
 }: SidebarProps) => {
   const location = useLocation()
 
@@ -43,6 +45,31 @@ export const Sidebar = ({
 
   return (
     <aside className={`${asideBase} ${widthClass} ${mobileTransform}`}>
+      {/* Edge Toggle Button - always visible on the right edge */}
+      {isLargeScreen && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="absolute -right-10 top-5 z-50 hidden lg:flex items-center justify-center w-8 h-18 border-slate-200 rounded-r-md hover:bg-slate-50 hover:border-slate-300 transition-all"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <PanelLeft className={`w-6 h-6 text-slate-500 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`} />
+        </button>
+      )}
+
+      {/* Mobile: header close button */}
+      {!isLargeScreen && mobileOpen && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="absolute -right-12 top-4 z-50 flex items-center justify-center w-8 h-8 bg-white/90 rounded-full shadow-md hover:bg-white transition-colors"
+          aria-label="Close sidebar"
+        >
+          <X className="w-5 h-5 text-slate-600" />
+        </button>
+      )}
+
       {/* Logo */}
       <div
         className={`flex items-center border-b border-slate-100 shrink-0 ${

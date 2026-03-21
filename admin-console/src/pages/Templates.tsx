@@ -27,6 +27,7 @@ interface TemplateCardProps {
 }
 
 const TemplateCard = ({
+  id,
   name,
   description,
   icon,
@@ -36,6 +37,8 @@ const TemplateCard = ({
   lastUsed: _lastUsed,
   agentColors: _agentColors,
 }: TemplateCardProps) => {
+  const navigate = useNavigate()
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group overflow-hidden flex flex-col">
       <div className="p-5 flex flex-col h-full">
@@ -63,7 +66,10 @@ const TemplateCard = ({
               ))}
             </div> */}
           </div>
-          <button className="w-full bg-slate-100 text-slate-700 py-2.5 rounded-lg font-bold text-sm hover:bg-slate-200 transition-all flex items-center justify-center gap-2">
+          <button
+            onClick={() => navigate(`/templates/${id}`)}
+            className="w-full bg-slate-100 text-slate-700 py-2.5 rounded-lg font-bold text-sm hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+          >
             <ArrowRight className="w-4 h-4" />
             View Details
           </button>

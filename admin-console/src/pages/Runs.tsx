@@ -1,16 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   RotateCcw,
   SlidersHorizontal,
-  Radio,
-  Sparkles,
-  BadgeCheck,
   Activity,
-  Map,
-  RefreshCw,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { runsApi } from '../api/runs'
@@ -77,7 +72,9 @@ function templateInitial(name?: string, fallback?: string): string {
 
 const ITEMS_PER_PAGE = 10
 
-const FILTER_CHIPS: { id: StatusFilter; label: string }[] = [
+type TimePeriod = 'all' | '1day' | '1week' | '1month'
+
+const STATUS_OPTIONS: { id: StatusFilter; label: string }[] = [
   { id: 'all', label: 'All Runs' },
   { id: 'running', label: 'Active Only' },
   { id: 'completed', label: 'Completed' },
@@ -85,19 +82,28 @@ const FILTER_CHIPS: { id: StatusFilter; label: string }[] = [
   { id: 'pending', label: 'Queued' },
 ]
 
+const TIME_PERIOD_OPTIONS: { id: TimePeriod; label: string }[] = [
+  { id: 'all', label: 'All time' },
+  { id: '1day', label: 'Last 1 day' },
+  { id: '1week', label: 'Last 1 week' },
+  { id: '1month', label: 'Last 1 month' },
+]
+
 export const Runs = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('all')
 
   const { data: templates } = useTemplates(100, 0)
 
   const { data: runs, isFetching } = useQuery({
-    queryKey: ['runs', selectedTemplate, statusFilter, currentPage],
+    queryKey: ['runs', selectedTemplate, statusFilter, timePeriod, currentPage],
     queryFn: () =>
       runsApi.list({
         template_id: selectedTemplate || undefined,
         status: statusFilter === 'all' ? undefined : statusFilter,
+        time_period: timePeriod === 'all' ? undefined : timePeriod,
         limit: ITEMS_PER_PAGE,
         offset: (currentPage - 1) * ITEMS_PER_PAGE,
       }),
@@ -111,15 +117,6 @@ export const Runs = () => {
 
   const getTemplateName = (templateId: string) => templates?.data?.find((x) => x.id === templateId)?.name
 
-  const stats = useMemo(() => {
-    const running = items.filter((r) => r.status === 'running').length
-    const completed = items.filter((r) => r.status === 'completed').length
-    const failed = items.filter((r) => r.status === 'failed').length
-    const terminal = completed + failed
-    const successRate = terminal > 0 ? Math.round((completed / terminal) * 1000) / 10 : 100
-    const health = failed === 0 ? 100 : Math.max(0, 100 - failed * 15)
-    return { running, completed, failed, successRate, health }
-  }, [items])
 
   return (
     <Layout>
@@ -135,43 +132,10 @@ export const Runs = () => {
                 Monitor all active and historical swarm executions with real-time telemetry and success rate tracking.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 rounded-xl bg-[#e1e9ee] p-1 text-xs sm:text-sm">
-                <span className="px-3 py-2 rounded-lg bg-white shadow-sm text-[#2a3439] font-semibold flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Live data
-                </span>
-                <span className={`px-3 py-2 ${t.onVar} font-medium`}>All runs · paginated</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="sr-only" htmlFor="runs-template-filter">
-                  Filter by template
-                </label>
-                <div className="relative">
-                  <SlidersHorizontal className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${t.onVar} pointer-events-none`} />
-                  <select
-                    id="runs-template-filter"
-                    value={selectedTemplate}
-                    onChange={(e) => {
-                      setSelectedTemplate(e.target.value)
-                      setCurrentPage(1)
-                    }}
-                    className={`pl-10 pr-8 py-3 rounded-xl text-sm font-semibold ${t.surface} text-[#2a3439] shadow-sm border ${t.outlineVar} focus:ring-2 focus:ring-[#6d3bd7]/20 outline-none appearance-none cursor-pointer`}
-                  >
-                    <option value="">All templates</option>
-                    {templates?.data?.map((tmpl) => (
-                      <option key={tmpl.id} value={tmpl.id}>
-                        {tmpl.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Metric cards — derived from current page (live refresh) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <div className={`${t.surface} p-6 rounded-2xl shadow-sm space-y-4 border ${t.outlineVar}`}>
               <div className="flex items-center justify-between">
                 <span className={`text-sm font-semibold ${t.onVar} uppercase tracking-wider`}>Running (page)</span>
@@ -221,27 +185,85 @@ export const Runs = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
 
-          {/* Filter chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            {FILTER_CHIPS.map((chip) => (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => {
-                  setStatusFilter(chip.id)
-                  setCurrentPage(1)
-                }}
-                className={`shrink-0 px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
-                  statusFilter === chip.id
-                    ? `${t.primaryBg} text-white`
-                    : `${t.surfaceLow} ${t.onVar} hover:text-[#2a3439]`
-                }`}
-              >
-                {chip.label}
-              </button>
-            ))}
+          {/* Filter row with dropdowns */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Status filter dropdown */}
+            <div className="flex items-center gap-2">
+              <label className="sr-only" htmlFor="runs-status-filter">
+                Filter by status
+              </label>
+              <div className="relative">
+                <Activity className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${t.onVar} pointer-events-none`} />
+                <select
+                  id="runs-status-filter"
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value as StatusFilter)
+                    setCurrentPage(1)
+                  }}
+                  className={`pl-10 pr-8 py-3 rounded-xl text-sm font-semibold ${t.surface} text-[#2a3439] shadow-sm border ${t.outlineVar} focus:ring-2 focus:ring-[#6d3bd7]/20 outline-none appearance-none cursor-pointer`}
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Template filter dropdown */}
+            <div className="flex items-center gap-2">
+              <label className="sr-only" htmlFor="runs-template-filter">
+                Filter by template
+              </label>
+              <div className="relative">
+                <SlidersHorizontal className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${t.onVar} pointer-events-none`} />
+                <select
+                  id="runs-template-filter"
+                  value={selectedTemplate}
+                  onChange={(e) => {
+                    setSelectedTemplate(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className={`pl-10 pr-8 py-3 rounded-xl text-sm font-semibold ${t.surface} text-[#2a3439] shadow-sm border ${t.outlineVar} focus:ring-2 focus:ring-[#6d3bd7]/20 outline-none appearance-none cursor-pointer`}
+                >
+                  <option value="">All templates</option>
+                  {templates?.data?.map((tmpl) => (
+                    <option key={tmpl.id} value={tmpl.id}>
+                      {tmpl.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Time period filter dropdown */}
+            <div className="flex items-center gap-2">
+              <label className="sr-only" htmlFor="runs-time-filter">
+                Filter by time period
+              </label>
+              <div className="relative">
+                <RotateCcw className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${t.onVar} pointer-events-none`} />
+                <select
+                  id="runs-time-filter"
+                  value={timePeriod}
+                  onChange={(e) => {
+                    setTimePeriod(e.target.value as TimePeriod)
+                    setCurrentPage(1)
+                  }}
+                  className={`pl-10 pr-8 py-3 rounded-xl text-sm font-semibold ${t.surface} text-[#2a3439] shadow-sm border ${t.outlineVar} focus:ring-2 focus:ring-[#6d3bd7]/20 outline-none appearance-none cursor-pointer`}
+                >
+                  {TIME_PERIOD_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Run list */}
@@ -253,7 +275,7 @@ export const Runs = () => {
               <div className="col-span-2">Status</div>
               <div className="col-span-2 text-center">Efficiency</div>
               <div className="col-span-2">Timeline</div>
-              <div className="col-span-2 text-right">Actions</div>
+              {/* <div className="col-span-2 text-right">Actions</div> */}
             </div>
 
             {isFetching && items.length === 0 && (
@@ -350,7 +372,7 @@ export const Runs = () => {
                   </div>
 
                   <div className="md:col-span-2 flex md:justify-end gap-2">
-                    {isFailed && (
+                    {/* {isFailed && (
                       <Link
                         to={`/runs/${run.run_id}`}
                         className={`p-2 ${t.onVar} hover:text-[#6d3bd7] transition-colors`}
@@ -358,7 +380,7 @@ export const Runs = () => {
                       >
                         <RotateCcw className="w-5 h-5" />
                       </Link>
-                    )}
+                    )} */}
                     {isPending ? (
                       <span className={`px-4 py-2 text-sm font-bold ${t.onVar} cursor-not-allowed`}>View logs</span>
                     ) : (
@@ -411,7 +433,7 @@ export const Runs = () => {
           </div>
 
           {/* Footer insight row (reference layout, no external assets) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 pb-6">
+          {/* <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 pb-6">
             <div className="lg:col-span-2 bg-gradient-to-br from-[#6d3bd7] to-[#4d00b7] p-8 rounded-3xl text-white relative overflow-hidden">
               <div className="absolute inset-0 opacity-10 pointer-events-none text-white">
                 <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
@@ -463,7 +485,7 @@ export const Runs = () => {
                 orchestration for a batch.
               </p>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </Layout>

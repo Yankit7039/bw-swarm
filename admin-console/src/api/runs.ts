@@ -20,7 +20,7 @@ export interface TriggerBatchResult {
 
 export const runsApi = {
   list: async (
-    params: { template_id?: string; status?: string; limit?: number; offset?: number } = {}
+    params: { template_id?: string; status?: string; time_period?: string; limit?: number; offset?: number } = {}
   ): Promise<PaginatedResponse<Run>> => {
     const response = await adminApi.get('/runs/', { params })
     const raw = response.data

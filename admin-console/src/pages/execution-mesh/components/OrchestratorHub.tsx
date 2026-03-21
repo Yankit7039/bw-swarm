@@ -1,4 +1,3 @@
-import { Network } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface OrchestratorHubProps {
@@ -118,7 +117,7 @@ export function OrchestratorHub({ isActive, currentAction, activeConnections }: 
           {/* {isActive ? (
             <Activity className="w-16 h-16 text-indigo-500" />
           ) : ( */}
-            <Network className="w-16 h-16 text-slate-400" />
+            <img src="/favicon.svg" alt="" className="w-20 h-20 opacity-80" />
           {/* )} */}
 
           {/* Status below hub */}

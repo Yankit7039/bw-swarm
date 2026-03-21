@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   Activity,
   AlertCircle,
@@ -17,6 +17,7 @@ import {
   Shield,
   Sparkles,
   Wrench,
+  Zap,
 } from 'lucide-react'
 import type { SwarmCluster, SubTask } from '../../../types/executionMesh'
 
@@ -128,10 +129,13 @@ const statusConfig = {
 function SubTaskItem({ task }: { task: SubTask }) {
   const config = statusConfig[task.status]
   return (
-    <div className="flex items-center gap-2 py-1 text-[11px]">
+    <div className={`flex items-center gap-2.5 py-1.5 px-2 rounded-md text-xs ${
+      task.status === 'running' ? 'bg-white shadow-sm border border-slate-100' : ''
+    }`}>
       <div className="flex-shrink-0 w-5 flex justify-center">{config.icon}</div>
-      <div className="flex-shrink-0 text-slate-400">{taskIcons[task.id] || <div className="w-3.5 h-3.5" />}</div>
-      <span className={`${config.text} truncate`}>{task.name}</span>
+      <div className="flex-shrink-0 text-slate-400">{taskIcons[task.id] || <div className="w-4 h-4" />}</div>
+      <span className={`${config.text} truncate flex-1`}>{task.name}</span>
+      {task.status === 'done' && <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
     </div>
   )
 }
@@ -161,55 +165,78 @@ function ClusterCard({
 
   return (
     <div
-      className={`relative rounded-2xl p-4 border-t-2 ${colors.border} overflow-hidden transition-all duration-300 ${
+      className={`group relative rounded-xl overflow-hidden transition-all duration-300 border ${
         isActive
-          ? `${colors.bg} ring-1 ${colors.ring}`
+          ? 'bg-white border-indigo-200 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/20'
           : showCompleted
-            ? 'bg-emerald-50/30 border-t-emerald-500/40 ring-1 ring-emerald-500/20'
-            : 'bg-white/60 border-slate-200/40'
+            ? 'bg-slate-50 border-slate-200'
+            : 'bg-white border-slate-200 hover:border-slate-300'
       }`}
     >
-      {/* Glow effect for active */}
+      {/* Active indicator bar */}
       {isActive && (
-        <div className={`absolute -right-8 -top-8 w-24 h-24 ${colors.bg.replace('/5', '/10')} rounded-full blur-3xl`} />
+        <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors.text.replace('text-', 'bg-')}`} />
       )}
 
       {/* Header */}
-      <button onClick={onToggle} className="relative w-full flex items-center gap-3 mb-3">
+      <button 
+        onClick={onToggle} 
+        className="relative w-full flex items-center gap-3 p-4"
+      >
+        {/* Icon */}
         <div
-          className={`w-10 h-10 rounded-xl flex items-center justify-center ring-1 ${
+          className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
             isActive
-              ? `${colors.iconBg} ${colors.iconColor} ${colors.ring}`
+              ? `${colors.iconBg} ${colors.iconColor}`
               : showCompleted
-                ? 'bg-emerald-100 text-emerald-600 ring-emerald-500/20'
-                : 'bg-slate-100 text-slate-500 ring-slate-200'
+                ? 'bg-emerald-100 text-emerald-600'
+                : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
           }`}
         >
           {showCompleted && !isActive ? (
             <CheckCircle className="w-5 h-5 text-emerald-600" />
+          ) : isActive ? (
+            <Zap className="w-5 h-5" />
           ) : (
             <Icon className="w-5 h-5" />
           )}
         </div>
-        <div className="text-left flex-1">
-          <h4 className={`font-bold text-sm ${isActive ? 'text-slate-900' : 'text-slate-700'}`}>{cluster.name}</h4>
-          <div className="flex items-center gap-2">
-            <span className={`text-[10px] ${isActive ? colors.text : showCompleted ? 'text-emerald-600 font-medium' : 'text-slate-500'}`}>
-              {isActive ? `${runningCount > 0 ? runningCount : doneCount} Agents ${runningCount > 0 ? 'Running' : 'Done'}` : showCompleted ? 'Completed' : 'Ready'}
-            </span>
-            {isActive && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />}
+
+        {/* Title & Status */}
+        <div className="text-left flex-1 min-w-0">
+          <h4 className={`font-semibold text-sm truncate ${isActive ? 'text-slate-900' : 'text-slate-700'}`}>
+            {cluster.name}
+          </h4>
+          <div className="flex items-center gap-2 mt-0.5">
+            {isActive ? (
+              <>
+                <span className={`text-xs font-medium ${colors.text}`}>
+                  {runningCount > 0 ? `${runningCount} running` : 'Processing'}
+                </span>
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              </>
+            ) : showCompleted ? (
+              <span className="text-xs font-medium text-emerald-600">Completed</span>
+            ) : (
+              <span className="text-xs text-slate-500">{cluster.subTasks.length} tasks</span>
+            )}
           </div>
         </div>
-        <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+
+        {/* Progress Badge */}
+        <div className="flex items-center gap-3">
+          {progress > 0 && (
+            <span className={`text-xs font-semibold ${showCompleted ? 'text-emerald-600' : isActive ? colors.text : 'text-slate-500'}`}>
+              {Math.round(progress)}%
+            </span>
+          )}
+          <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+        </div>
       </button>
 
-      {/* Progress */}
-      {(isActive || progress > 0 || showCompleted) && (
-        <div className="relative mb-3">
-          <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
-            <span>{runningCount > 0 ? `${runningCount} running` : `${doneCount} done`}</span>
-            <span className="font-medium">{Math.round(progress)}%</span>
-          </div>
+      {/* Progress Bar */}
+      {(progress > 0 || isActive) && (
+        <div className="px-4 pb-3">
           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
@@ -223,10 +250,12 @@ function ClusterCard({
 
       {/* Expanded Tasks */}
       {isExpanded && (
-        <div className="relative bg-white/60 rounded-xl border border-slate-200/40 p-3">
-          {cluster.subTasks.map((task) => (
-            <SubTaskItem key={task.id} task={task} />
-          ))}
+        <div className="border-t border-slate-100 bg-slate-50/50">
+          <div className="p-3 space-y-1">
+            {cluster.subTasks.map((task) => (
+              <SubTaskItem key={task.id} task={task} />
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -241,15 +270,23 @@ export function SwarmNodesPanel({
 }: SwarmNodesPanelProps) {
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set())
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const activeClusterRef = useRef<HTMLDivElement>(null)
 
-  // Auto-expand active cluster, collapse when all done
+  // Auto-expand active cluster and scroll to it
   useEffect(() => {
-    if (hasUserInteracted) return // Don't auto-expand if user has manually interacted
+    if (hasUserInteracted) return
 
     if (allRunsComplete) {
       setExpandedClusters(new Set())
     } else if (activeConnections.length > 0) {
       setExpandedClusters(new Set(activeConnections))
+      // Scroll to active cluster after a short delay to allow render
+      setTimeout(() => {
+        if (activeClusterRef.current && scrollContainerRef.current) {
+          activeClusterRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 100)
     }
   }, [activeConnections.join(','), allRunsComplete, hasUserInteracted])
 
@@ -270,33 +307,40 @@ export function SwarmNodesPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-50/80 backdrop-blur-lg p-5">
+    <div className="h-full flex flex-col bg-white border-l border-slate-200">
       {/* Header */}
-      <div className="flex justify-between items-center mb-5">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-bold">Execution Mesh</p>
-          <h2 className="text-lg font-bold text-slate-900">Swarm Nodes</h2>
-          {selectedOrderId && (
-            <p className="text-xs text-indigo-600 font-medium mt-0.5">
-              Viewing: {selectedOrderId}
-            </p>
-          )}
+      <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Live Execution</p>
         </div>
-        {/* <Settings className="w-5 h-5 text-slate-400 hover:text-indigo-600 cursor-pointer transition-colors" /> */}
+        <h2 className="text-lg font-bold text-slate-900">Swarm Nodes</h2>
+        {selectedOrderId && (
+          <p className="text-xs text-indigo-600 font-medium mt-1">
+            Order: {selectedOrderId}
+          </p>
+        )}
       </div>
 
       {/* Clusters */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scrollbar">
-        {clusters.map((cluster) => (
-          <ClusterCard
-            key={cluster.id}
-            cluster={cluster}
-            isActive={activeConnections.includes(cluster.id)}
-            isCompleted={isClusterCompleted(cluster)}
-            isExpanded={expandedClusters.has(cluster.id)}
-            onToggle={() => toggleCluster(cluster.id)}
-          />
-        ))}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+        {clusters.map((cluster) => {
+          const isActive = activeConnections.includes(cluster.id)
+          return (
+            <div
+              key={cluster.id}
+              ref={isActive ? activeClusterRef : null}
+            >
+              <ClusterCard
+                cluster={cluster}
+                isActive={isActive}
+                isCompleted={isClusterCompleted(cluster)}
+                isExpanded={expandedClusters.has(cluster.id)}
+                onToggle={() => toggleCluster(cluster.id)}
+              />
+            </div>
+          )
+        })}
       </div>
     </div>
   )

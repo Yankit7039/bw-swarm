@@ -387,7 +387,7 @@ export const RunDetail = () => {
                 >
                   Logs
                 </button>
-                <button
+                {/* <button
                   type="button"
                   onClick={() => setView('graphical')}
                   className={`px-4 sm:px-5 py-1.5 text-sm font-medium rounded-full transition-all ${
@@ -397,7 +397,7 @@ export const RunDetail = () => {
                   }`}
                 >
                   Graphical
-                </button>
+                </button> */}
               </nav>
             </div>
             {view === 'logs' && (
