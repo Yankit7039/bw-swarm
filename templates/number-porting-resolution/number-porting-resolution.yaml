@@ -1,0 +1,205 @@
+template_id: number-porting-resolution
+version: "1.0"
+description: Resolves stuck mobile number port-in orders where donor validation has failed.
+
+input:
+  required:
+    - order_id
+
+adapters:
+  - amdocs_oms
+  - siebel_crm
+  - porting_gateway
+  - runbook_registry
+  - notification
+
+escalation_matrix:
+  P1:
+    L1: { team: Porting Operations,  contact: porting-ops@carrier.com,      sla_minutes: 15 }
+    L2: { team: Porting Lead,        contact: porting-lead@carrier.com,     sla_minutes: 30 }
+    L3: { team: Customer Ops Manager,contact: customer-ops-mgr@carrier.com, sla_minutes: 60 }
+
+stages:
+
+  # -----------------------------------------------------------------------
+  - name: classify
+    type: hybrid
+    steps:
+
+      # Deterministic: pull data from all 3 systems
+      - name: fetch_port_validation
+        type: mcp_call
+        tool: porting_gateway__get_validation_status
+        input:
+          order_id: "{{ order_id }}"
+        output_key: port_validation
+
+      - name: fetch_donor_rejection
+        type: mcp_call
+        tool: porting_gateway__get_rejection_reason
+        input:
+          order_id: "{{ order_id }}"
+        output_key: donor_rejection
+
+      - name: fetch_subscriber_identity
+        type: mcp_call
+        tool: siebel_crm__get_subscriber_identity
+        input:
+          order_id: "{{ order_id }}"
+        output_key: subscriber_identity
+
+      # LLM: synthesise root cause from the data above
+      - name: classify_agent
+        type: llm_agent
+        description: Root cause analysis — identifies the exact porting blocker
+        instruction: |
+          You are diagnosing a stuck number porting order. Analyse only the data below.
+          Do not call any tools. Return ONLY a JSON object.
+
+          Port validation: {{ port_validation }}
+          Donor rejection: {{ donor_rejection }}
+          Subscriber identity: {{ subscriber_identity }}
+
+          root_cause must be exactly one of: account_number_mismatch | dob_mismatch | loa_invalid | gateway_timeout | unknown
+          priority must be P1 or P2.
+
+          {"root_cause": "...", "root_cause_detail": "one sentence", "priority": "P1 or P2"}
+        input_keys: [port_validation, donor_rejection, subscriber_identity]
+        output_key: classify_result   # full dict under classify_result only (no flat merge into state)
+        fallback_state:
+          root_cause: unknown
+          root_cause_detail: Could not parse LLM response
+          priority: P1
+
+  # -----------------------------------------------------------------------
+  - name: route
+    type: hybrid
+    steps:
+
+      # Deterministic: fetch the runbook for this root cause
+      - name: fetch_runbook
+        type: mcp_call
+        tool: runbook_registry__get_runbook
+        input:
+          root_cause: "{{ classify_result['root_cause'] }}"
+          order_type: number_porting
+        output_key: runbook
+
+      # LLM: reads root cause + runbook, decides which fix to attempt
+      - name: route_agent
+        type: llm_agent
+        description: Select and trigger the right fix based on runbook guidance
+        instruction: |
+          Context (already loaded for you):
+
+          Root cause: {{ classify_result['root_cause_detail'] }}
+          Guidance: {{ runbook }}
+
+          Permitted MCP tool names (exact strings only): porting_gateway__correct_and_resubmit, porting_gateway__retry_port_request, siebel_crm__update_subscriber_record.
+          Do not reference any other tool or system name.
+
+          Match the guidance to those names, then output only this JSON:
+          {"tools_called": ["tool_name"], "resolution_attempted": true/false, "reasoning": "one sentence"}
+        input_keys: [classify_result, runbook]
+        output_key: route_result
+        tool_filter:
+          - porting_gateway__correct_and_resubmit
+          - porting_gateway__retry_port_request
+          - siebel_crm__update_subscriber_record
+
+      # Deterministic: check if the fix worked (use_resolution_buckets for hybrid demo)
+      - name: check_resolved
+        type: mcp_call
+        tool: amdocs_oms__get_order_status
+        input:
+          order_id: "{{ order_id }}"
+          use_resolution_buckets: true
+        output_key: order_status
+
+      # condition: branches use 'if' for conditions; final branch with if: "True" is else fallback
+      - name: set_resolved_flag
+        type: condition
+        branches:
+          - if: "order_status['status'] == 'COMPLETED'"
+            set: { resolved: true }
+          - if: "True"
+            set: { resolved: false }
+
+  # -----------------------------------------------------------------------
+  - name: alert
+    type: hybrid
+    skip_if: "resolved == True"
+    steps:
+
+      # Deterministic: fetch escalation contact
+      - name: fetch_escalation_contact
+        type: mcp_call
+        tool: runbook_registry__get_escalation_contact
+        input:
+          priority: "{{ classify_result['priority'] }}"
+          level: L1
+          order_type: number_porting
+        output_key: escalation_contact
+
+      # LLM: compose the alert message
+      - name: alert_agent
+        type: llm_agent
+        description: Compose escalation alert with full context
+        instruction: |
+          Write a concise escalation alert for a stuck number porting order.
+
+          Order ID: {{ order_id }}
+          Root cause: {{ classify_result['root_cause_detail'] }}
+          Fix attempted: {{ route_result }}
+          Recipient: {{ escalation_contact['team'] }}
+
+          Respond ONLY as JSON:
+          {"subject": "...", "body": "3-4 sentences max"}
+          Do not invent any data.
+        input_keys: [order_id, classify_result, route_result, escalation_contact]
+        output_key: alert_message
+
+      # Deterministic: send the alert
+      - name: send_alert
+        type: mcp_call
+        tool: notification__send_alert
+        input:
+          to: "{{ escalation_contact['contact'] }}"
+          subject: "{{ alert_message['subject'] }}"
+          body: "{{ alert_message['body'] }}"
+        output_key: alert_sent
+
+  # -----------------------------------------------------------------------
+  - name: follow_up
+    type: poll_loop
+    skip_if: "resolved == True"
+    interval_seconds: 10
+    max_iterations: 3
+    exit_if: "order_status['status'] == 'COMPLETED'"
+
+    poll_steps:
+      - name: check_order
+        type: mcp_call
+        tool: amdocs_oms__get_order_status
+        input:
+          order_id: "{{ order_id }}"
+          use_resolution_buckets: true
+        output_key: order_status
+
+      - name: check_port_status
+        type: mcp_call
+        tool: porting_gateway__get_validation_status
+        input:
+          order_id: "{{ order_id }}"
+        output_key: port_validation
+
+    escalation_ladder:
+      - iteration: 1
+        level: L1
+        label: "Reminder"
+      - iteration: 2
+        level: L2
+        label: "L2 Escalation"
+      - iteration: 3
+        level: L3
+        label: "L3 Escalation — port window closing"

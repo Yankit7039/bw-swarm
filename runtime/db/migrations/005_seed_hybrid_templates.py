@@ -1,0 +1,61 @@
+"""Seed hybrid templates with workflow_yaml read from YAML files on disk."""
+from pathlib import Path
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
+
+
+TEMPLATES = [
+    {
+        "template_id": "esim-activation-resolution",
+        "name": "eSIM Activation Resolution",
+        "image": "esim-activation-adk:latest",
+        "warm_pool_ref": "esim-activation-adk-pool",
+        "yaml_path": "templates/esim-activation-resolution/esim-activation-resolution.yaml",
+    },
+    {
+        "template_id": "number-porting-resolution",
+        "name": "Number Porting Resolution",
+        "image": "number-porting-adk:latest",
+        "warm_pool_ref": "number-porting-adk-pool",
+        "yaml_path": "templates/number-porting-resolution/number-porting-resolution.yaml",
+    },
+]
+
+
+async def run(conn: AsyncConnection) -> None:
+    """Insert or update hybrid templates with workflow YAML from disk."""
+    migrations_dir = Path(__file__).resolve().parent
+    repo_root = migrations_dir.parents[2]  # migrations -> db -> runtime -> repo root
+
+    insert_sql = text(
+        """
+        INSERT INTO templates
+            (template_id, name, image, warm_pool_ref, config, workflow_yaml, created_at, updated_at)
+        VALUES (
+            :template_id,
+            :name,
+            :image,
+            :warm_pool_ref,
+            '{}'::jsonb,
+            :workflow_yaml,
+            (NOW() AT TIME ZONE 'utc'),
+            (NOW() AT TIME ZONE 'utc')
+        )
+        ON CONFLICT (template_id) DO NOTHING
+        """
+    )
+
+    for template in TEMPLATES:
+        yaml_path = repo_root / template["yaml_path"]
+        yaml_content = yaml_path.read_text(encoding="utf-8")
+
+        await conn.execute(
+            insert_sql,
+            {
+                "template_id": template["template_id"],
+                "name": template["name"],
+                "image": template["image"],
+                "warm_pool_ref": template["warm_pool_ref"],
+                "workflow_yaml": yaml_content,
+            },
+        )

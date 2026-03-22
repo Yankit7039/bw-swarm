@@ -7,7 +7,12 @@ from starlette.applications import Starlette
 
 from app.adapters.amdocs_oms.adapter import register_amdocs_oms_tools
 from app.adapters.ericsson.adapter import register_ericsson_tools
+from app.adapters.esim_manager.adapter import register_esim_manager_tools
+from app.adapters.fraud_engine.adapter import register_fraud_engine_tools
 from app.adapters.netcracker.adapter import register_netcracker_tools
+from app.adapters.notification.adapter import register_notification_tools
+from app.adapters.porting_gateway.adapter import register_porting_gateway_tools
+from app.adapters.runbook_registry.adapter import register_runbook_registry_tools
 from app.adapters.siebel_crm.adapter import register_siebel_crm_tools
 
 
@@ -56,6 +61,11 @@ def _register_all_tools(mcp: Any) -> None:
     register_siebel_crm_tools(mcp)
     register_ericsson_tools(mcp)
     register_netcracker_tools(mcp)
+    register_fraud_engine_tools(mcp)
+    register_esim_manager_tools(mcp)
+    register_runbook_registry_tools(mcp)
+    register_porting_gateway_tools(mcp)
+    register_notification_tools(mcp)
 
 
 _register_all_tools(_MCP_SERVER)

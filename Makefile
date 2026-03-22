@@ -33,7 +33,9 @@ IMAGES = \
   swarm-runtime:.:runtime/Dockerfile \
   swarm-adapter:adapter:adapter/Dockerfile \
   swarm-admin-api:.:admin-api/Dockerfile \
-  stuck-order-adk:templates/stuck-order-adk:templates/stuck-order-adk/Dockerfile
+  stuck-order-adk:templates/stuck-order-adk:templates/stuck-order-adk/Dockerfile \
+  esim-activation-adk:templates/esim-activation-resolution:templates/esim-activation-resolution/Dockerfile \
+  number-porting-adk:templates/number-porting-resolution:templates/number-porting-resolution/Dockerfile
 
 # ── K8s manifests in apply order ─────────────────────────────────────────────
 K8S_MANIFESTS = \
@@ -43,7 +45,9 @@ K8S_MANIFESTS = \
   infra/k8s-aws/adapter-deployment.yaml \
   infra/k8s-aws/runtime-deployment.yaml \
   infra/k8s-aws/admin-api-deployment.yaml \
-  infra/k8s-aws/warmpool-stuck-order-adk.yaml
+  infra/k8s-aws/warmpool-stuck-order-adk.yaml \
+  infra/k8s-aws/warmpool-esim-activation-adk.yaml \
+  infra/k8s-aws/warmpool-number-porting-adk.yaml
 
 # =============================================================================
 # PUBLIC TARGETS
@@ -122,7 +126,9 @@ _k8s-apply:
 	$(eval ECR_RUNTIME := $(ECR_BASE)/$(ECR_PREFIX)swarm-runtime:latest)
 	$(eval ECR_ADAPTER := $(ECR_BASE)/$(ECR_PREFIX)swarm-adapter:latest)
 	$(eval ECR_ADMIN   := $(ECR_BASE)/$(ECR_PREFIX)swarm-admin-api:latest)
-	$(eval ECR_ADK     := $(ECR_BASE)/$(ECR_PREFIX)stuck-order-adk:latest)
+	$(eval ECR_ADK          := $(ECR_BASE)/$(ECR_PREFIX)stuck-order-adk:latest)
+	$(eval ECR_ESIM_ADK     := $(ECR_BASE)/$(ECR_PREFIX)esim-activation-adk:latest)
+	$(eval ECR_NUMBER_ADK   := $(ECR_BASE)/$(ECR_PREFIX)number-porting-adk:latest)
 	@echo "  --> Applying agent-sandbox CRDs"
 	kubectl apply -f infra/k8s-aws/agent-sandbox-manifest.yaml
 	kubectl apply -f infra/k8s-aws/agent-sandbox-extensions.yaml
@@ -139,6 +145,8 @@ _k8s-apply:
 	    -e 's|$(ECR_BASE)/swarm-adapter:latest|$(ECR_ADAPTER)|g' \
 	    -e 's|$(ECR_BASE)/swarm-admin-api:latest|$(ECR_ADMIN)|g' \
 	    -e 's|$(ECR_BASE)/stuck-order-adk:latest|$(ECR_ADK)|g' \
+	    -e 's|$(ECR_BASE)/esim-activation-adk:latest|$(ECR_ESIM_ADK)|g' \
+	    -e 's|$(ECR_BASE)/number-porting-adk:latest|$(ECR_NUMBER_ADK)|g' \
 	    -e 's|REPLACE_WITH_SECRET_NAME|$(SECRET_NAME)|g' \
 	    $$f | kubectl apply -f -; \
 	done

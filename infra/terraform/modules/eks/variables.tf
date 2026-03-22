@@ -16,7 +16,7 @@ variable "private_subnet_ids" {
 variable "kubernetes_version" {
   description = "EKS control plane version."
   type        = string
-  default     = "1.29"
+  default     = "1.31"
 }
 
 variable "platform_version" {

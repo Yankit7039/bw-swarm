@@ -8,7 +8,9 @@ from .get_account_status import get_account_status
 from .get_billing_flags import get_billing_flags
 from .get_contact_details import get_contact_details
 from .get_service_requests import get_service_requests
+from .get_subscriber_identity import get_subscriber_identity
 from .lookup_customer import lookup_customer
+from .update_subscriber_record import update_subscriber_record
 
 
 def register_siebel_crm_tools(mcp: Any) -> None:
@@ -17,4 +19,6 @@ def register_siebel_crm_tools(mcp: Any) -> None:
     register_tool(mcp, name="siebel_crm__get_billing_flags", fn=get_billing_flags)
     register_tool(mcp, name="siebel_crm__get_service_requests", fn=get_service_requests)
     register_tool(mcp, name="siebel_crm__get_contact_details", fn=get_contact_details)
+    register_tool(mcp, name="siebel_crm__get_subscriber_identity", fn=get_subscriber_identity)
+    register_tool(mcp, name="siebel_crm__update_subscriber_record", fn=update_subscriber_record)
 

@@ -72,6 +72,8 @@ module "ecr" {
 
   repository_names = [
     "stuck-order-adk",
+    "esim-activation-adk",
+    "number-porting-adk",
     "swarm-adapter",
     "swarm-runtime",
     "swarm-admin-api",
@@ -86,7 +88,7 @@ module "eks" {
 
   private_subnet_ids = module.vpc.private_subnet_ids
 
-  kubernetes_version = "1.29"
+  kubernetes_version = "1.31"
   platform_version   = "eks.66"
   service_ipv4_cidr  = "172.20.0.0/16"
 

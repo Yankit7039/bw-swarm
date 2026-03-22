@@ -1,0 +1,209 @@
+template_id: esim-activation-resolution
+version: "1.0"
+description: Resolves stuck eSIM activation orders blocked by fraud clearance or KYC failure.
+
+input:
+  required:
+    - order_id
+
+# Adapters whose tools are available to this workflow
+adapters:
+  - amdocs_oms
+  - fraud_engine
+  - esim_manager
+  - runbook_registry
+  - notification
+
+escalation_matrix:
+  P1:
+    L1: { team: Fraud Operations,        contact: fraud-ops@carrier.com,       sla_minutes: 15 }
+    L2: { team: Fraud Ops Lead,          contact: fraud-ops-lead@carrier.com,  sla_minutes: 30 }
+    L3: { team: Digital Service Manager, contact: digital-svc-mgr@carrier.com, sla_minutes: 60 }
+
+stages:
+
+  # -----------------------------------------------------------------------
+  - name: classify
+    type: hybrid
+    steps:
+
+      # Deterministic: pull data from all 3 systems
+      - name: fetch_fraud_status
+        type: mcp_call
+        tool: fraud_engine__check_fraud_hold
+        input:
+          order_id: "{{ order_id }}"
+        output_key: fraud_hold
+
+      - name: fetch_kyc_status
+        type: mcp_call
+        tool: fraud_engine__check_kyc_status
+        input:
+          order_id: "{{ order_id }}"
+        output_key: kyc_status
+
+      - name: fetch_activation_status
+        type: mcp_call
+        tool: esim_manager__check_activation_status
+        input:
+          order_id: "{{ order_id }}"
+        output_key: activation_status
+
+      # LLM: synthesise root cause from the 3 data points above
+      - name: classify_agent
+        type: llm_agent
+        description: Root cause analysis — reads fetched data, outputs a verdict
+        instruction: |
+          You are diagnosing a stuck eSIM activation order. Analyse only the data below.
+          Do not call any tools. Return ONLY a JSON object.
+
+          Fraud hold: {{ fraud_hold }}
+          KYC status: {{ kyc_status }}
+          Activation status: {{ activation_status }}
+
+          root_cause must be exactly one of: fraud_clearance_hold | kyc_failure | activation_system_error | unknown
+          priority must be P1 or P2.
+
+          {"root_cause": "...", "root_cause_detail": "one sentence", "priority": "P1 or P2"}
+        input_keys: [fraud_hold, kyc_status, activation_status]
+        output_key: classify_result   # full dict under classify_result only (no flat merge into state)
+        fallback_state:
+          root_cause: unknown
+          root_cause_detail: Could not parse LLM response
+          priority: P1
+
+  # -----------------------------------------------------------------------
+  - name: route
+    type: hybrid
+    steps:
+
+      # Deterministic: fetch the runbook for this root cause
+      - name: fetch_runbook
+        type: mcp_call
+        tool: runbook_registry__get_runbook
+        input:
+          root_cause: "{{ classify_result['root_cause'] }}"
+          order_type: esim_activation
+        output_key: runbook
+
+      # LLM: reads root cause + runbook, decides which fix to attempt
+      - name: route_agent
+        type: llm_agent
+        description: Select and trigger the right fix based on runbook guidance
+        instruction: |
+          Context (already loaded for you):
+
+          Root cause: {{ classify_result['root_cause_detail'] }}
+          Guidance: {{ runbook }}
+
+          Permitted MCP tool names (exact strings only): fraud_engine__release_fraud_hold, fraud_engine__trigger_kyc_retry, esim_manager__retry_activation.
+          Do not reference any other tool or system name.
+
+          Match the guidance to those names, then output only this JSON:
+          {"tools_called": ["tool_name"], "resolution_attempted": true/false, "reasoning": "one sentence"}
+        input_keys: [classify_result, runbook]
+        output_key: route_result
+        tool_filter:
+          - fraud_engine__release_fraud_hold
+          - fraud_engine__trigger_kyc_retry
+          - esim_manager__retry_activation
+
+      # Deterministic: check if the fix worked (use_resolution_buckets for hybrid demo)
+      - name: check_resolved
+        type: mcp_call
+        tool: amdocs_oms__get_order_status
+        input:
+          order_id: "{{ order_id }}"
+          use_resolution_buckets: true
+        output_key: order_status
+
+      # condition: branches use 'if' for conditions; final branch with if: "True" is else fallback
+      - name: set_resolved_flag
+        type: condition
+        branches:
+          - if: "order_status['status'] == 'COMPLETED'"
+            set: { resolved: true }
+          - if: "True"
+            set: { resolved: false }
+
+  # -----------------------------------------------------------------------
+  - name: alert
+    type: hybrid
+    skip_if: "resolved == True"
+    steps:
+
+      # Deterministic: fetch escalation contact
+      - name: fetch_escalation_contact
+        type: mcp_call
+        tool: runbook_registry__get_escalation_contact
+        input:
+          priority: "{{ classify_result['priority'] }}"
+          level: L1
+          order_type: esim_activation
+        output_key: escalation_contact
+
+      # LLM: compose the alert message
+      - name: alert_agent
+        type: llm_agent
+        description: Compose escalation alert with full context
+        instruction: |
+          Write a concise escalation alert for a stuck eSIM activation order.
+
+          Order ID: {{ order_id }}
+          Root cause: {{ classify_result['root_cause_detail'] }}
+          Fix attempted: {{ route_result }}
+          Recipient: {{ escalation_contact['team'] }}
+
+          Respond ONLY as JSON:
+          {"subject": "...", "body": "3-4 sentences max"}
+          Do not invent any data.
+        input_keys: [order_id, classify_result, route_result, escalation_contact]
+        output_key: alert_message
+
+      # Deterministic: send the alert
+      - name: send_alert
+        type: mcp_call
+        tool: notification__send_alert
+        input:
+          to: "{{ escalation_contact['contact'] }}"
+          subject: "{{ alert_message['subject'] }}"
+          body: "{{ alert_message['body'] }}"
+        output_key: alert_sent
+
+  # -----------------------------------------------------------------------
+  - name: follow_up
+    type: poll_loop
+    skip_if: "resolved == True"
+    # For demo: each interval is a few seconds, not real minutes
+    interval_seconds: 10
+    max_iterations: 3          # L1 reminder → L2 escalation → L3 escalation then stop
+    exit_if: "order_status['status'] == 'COMPLETED'"
+
+    # Runs on every iteration
+    poll_steps:
+      - name: check_order
+        type: mcp_call
+        tool: amdocs_oms__get_order_status
+        input:
+          order_id: "{{ order_id }}"
+          use_resolution_buckets: true
+        output_key: order_status
+
+      - name: check_activation
+        type: mcp_call
+        tool: esim_manager__check_activation_status
+        input:
+          order_id: "{{ order_id }}"
+        output_key: activation_status
+
+    # Escalation ladder — one entry per iteration
+    escalation_ladder:
+      - iteration: 1
+        level: L1
+        label: "Reminder"
+      - iteration: 2
+        level: L2
+        label: "L2 Escalation"
+      - iteration: 3
+        level: L3
+        label: "L3 Escalation — SLA at risk"

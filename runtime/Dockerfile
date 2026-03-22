@@ -6,6 +6,7 @@ COPY runtime/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY runtime ./runtime
+COPY templates ./templates
 ENV PYTHONPATH=/app
 
 EXPOSE 8000
