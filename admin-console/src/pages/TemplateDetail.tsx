@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -22,49 +22,39 @@ import {
 import { Layout } from '../components/layout/Layout'
 import { useTemplates } from '../hooks/useTemplates'
 
-// YAML syntax highlighting helper
+// YAML syntax highlighting helper - preserves line structure
 function highlightYAML(yaml: string): string {
   return yaml
-    .replace(/#.*$/gm, '<span class="text-slate-400 italic">$&</span>')
-    .replace(/^(\s*)([a-zA-Z_][a-zA-Z0-9_-]*)(:)/gm, '$1<span class="text-violet-600 font-semibold">$2</span><span class="text-slate-600">$3</span>')
-    .replace(/: (true|false)/g, ': <span class="text-indigo-600 font-semibold">$1</span>')
-    .replace(/: (\d+)/g, ': <span class="text-amber-600">$1</span>')
-    .replace(/: ([a-zA-Z_][a-zA-Z0-9_-]*)/g, ': <span class="text-emerald-600">$1</span>')
-    .replace(/: "([^"]*)"/g, ': <span class="text-emerald-700">"$1"</span>')
-    .replace(/: '([^']*)'/g, ': <span class="text-emerald-700">\'$1\'</span>')
+    .split('\n')
+    .map(line => {
+      let highlighted = line
+        .replace(/#.*$/g, '<span class="text-slate-400 italic">$&</span>')
+        .replace(/^(\s*)([a-zA-Z_][a-zA-Z0-9_-]*)(:)/g, '$1<span class="text-violet-600 font-semibold">$2</span><span class="text-slate-600">$3</span>')
+        .replace(/: (true|false)/g, ': <span class="text-indigo-600 font-semibold">$1</span>')
+        .replace(/: (\d+)/g, ': <span class="text-amber-600">$1</span>')
+        .replace(/: ([a-zA-Z_][a-zA-Z0-9_-]*)/g, ': <span class="text-emerald-600">$1</span>')
+        .replace(/: "([^"]*)"/g, ': <span class="text-emerald-700">"$1"</span>')
+        .replace(/: '([^']*)'/g, ': <span class="text-emerald-700">\'$1\'</span>')
+      return `<div class="leading-relaxed h-[1.625rem]">${highlighted || '&nbsp;'}</div>`
+    })
+    .join('')
 }
 
-// Generate YAML from template
-function generateTemplateYAML(templateId: string, templateName: string): string {
-  return `# Swarm Configuration Protocol v2.4
-version: '2.4'
-swarm_id: "${templateId || 'neural-orchestra-01'}"
-name: "${templateName || 'Unnamed Swarm'}"
-orchestrator:
-  agent: "conductor-prime"
-  strategy: "asynchronous-consensus"
-  max_tokens: 4096
+// Get YAML content from template - use workflow_yaml if available
+function getYamlContent(workflowYaml: string | null | undefined, templateId: string, templateName: string): string {
+  if (workflowYaml && workflowYaml.trim().length > 0) {
+    return workflowYaml
+  }
 
-agents:
-  - id: "data-harvester"
-    role: "extraction"
-    model: "gpt-4-turbo"
-    connections: ["logic-evaluator"]
-    
-  - id: "logic-evaluator"
-    role: "validation"
-    model: "claude-3-opus"
-    connections: ["output-synthesizer"]
-    
-  - id: "output-synthesizer"
-    role: "assembly"
-    model: "swarm-internal-v1"
-    
-settings:
-  telemetry: true
-  security_level: "high"
-  auto_heal: true
-  log_retention: "30d"`
+  // Fallback when workflow_yaml is not available
+  return `# Template Configuration
+# Template ID: ${templateId}
+# Name: ${templateName}
+# Note: No workflow YAML available
+
+version: '1.0'
+template_id: "${templateId}"
+name: "${templateName}"`
 }
 
 // interface ClusterConfig {
@@ -307,7 +297,10 @@ export function TemplateDetail() {
 
   const template = templatesData?.data?.find((t) => t.id === id)
 
-  const yamlContent = generateTemplateYAML(id || '', template?.name || 'Unnamed Template')
+  const yamlContent = useMemo(
+    () => getYamlContent(template?.workflow_yaml, id || '', template?.name || 'Unnamed Template'),
+    [template?.workflow_yaml, id, template?.name]
+  )
   const highlightedYAML = highlightYAML(yamlContent)
 
   const handleValidate = () => {
@@ -440,14 +433,14 @@ export function TemplateDetail() {
               {/* Line Numbers */}
               <div className="py-6 px-3 text-right text-slate-300 font-mono text-sm select-none border-r border-slate-100 bg-slate-50/50">
                 {lineNumbers.map((n) => (
-                  <div key={n} className="leading-relaxed">
+                  <div key={n} className="leading-relaxed h-[1.625rem]">
                     {n}
                   </div>
                 ))}
               </div>
 
               {/* YAML Content */}
-              <div className="flex-1 py-6 px-4 font-mono text-sm leading-relaxed whitespace-pre-wrap">
+              <div className="flex-1 py-6 px-4 font-mono text-sm">
                 <div
                   dangerouslySetInnerHTML={{ __html: highlightedYAML }}
                   className="text-slate-700"

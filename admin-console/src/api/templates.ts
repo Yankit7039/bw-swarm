@@ -18,12 +18,16 @@ export const templatesApi = {
         template_id?: string
         id?: string
         name: string
+        config?: Record<string, unknown> | null
+        workflow_yaml?: string | null
         version?: number
         created_at: string
         updated_at: string
       }) => ({
         id: t.template_id ?? t.id ?? '',
         name: t.name,
+        config: t.config,
+        workflow_yaml: t.workflow_yaml,
         version: t.version ?? 1,
         created_at: t.created_at,
         updated_at: t.updated_at,

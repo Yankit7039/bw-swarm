@@ -25,6 +25,7 @@ templates_table = Table(
     Column("image", String, nullable=False),
     Column("warm_pool_ref", String, nullable=True),
     Column("config", JSON, nullable=True),
+    Column("workflow_yaml", String, nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )

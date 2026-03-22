@@ -20,6 +20,8 @@ export interface TemplateSummary {
   id: string
   name: string
   version: number
+  config?: Record<string, unknown> | null
+  workflow_yaml?: string | null
   created_at: string
   updated_at: string
 }
@@ -28,7 +30,9 @@ export interface TemplateDetail {
   id: string
   name: string
   version: number
-  definition: WorkflowDefinition
+  config?: Record<string, unknown> | null
+  workflow_yaml?: string | null
+  definition?: WorkflowDefinition
   created_at: string
   updated_at: string
 }

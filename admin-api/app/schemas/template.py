@@ -10,6 +10,7 @@ class Template(BaseModel):
   image: str
   warm_pool_ref: str | None = None
   config: dict[str, Any] | None = None
+  workflow_yaml: str | None = None
   created_at: datetime | None = None
   updated_at: datetime | None = None
 
