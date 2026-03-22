@@ -148,6 +148,24 @@ def normalize_mcp_result(result: Any) -> dict:
     return {"raw": str(result)}
 
 
+def _mcp_tool_event_payload(
+    tool: str,
+    label: str,
+    *,
+    parent_agent: str | None,
+    iteration: int | None = None,
+    escalation_label: str | None = None,
+) -> dict:
+    payload: dict = {"tool": tool, "label": label}
+    if parent_agent:
+        payload["parent_agent"] = parent_agent
+    if iteration is not None:
+        payload["iteration"] = iteration
+    if escalation_label:
+        payload["escalation_label"] = escalation_label
+    return payload
+
+
 async def execute_mcp_call(
     step: dict,
     state: dict,
@@ -157,6 +175,9 @@ async def execute_mcp_call(
     insert_run_event: Callable,
     tool_labels: dict,
     render: Callable[[str, dict], str],
+    parent_agent: str | None = None,
+    iteration: int | None = None,
+    escalation_label: str | None = None,
 ) -> None:
     tool = step.get("tool", "")
     inp = step.get("input") or {}
@@ -168,13 +189,17 @@ async def execute_mcp_call(
     if isinstance(arguments.get("use_resolution_buckets"), str):
         arguments["use_resolution_buckets"] = arguments["use_resolution_buckets"].lower() in ("true", "1")
     label = tool_labels.get(tool, f"Calling {tool}")
-    await insert_run_event(run_id, "tool_started", label, {"tool": tool, "label": label})
+    pa = step.get("event_parent_agent") or parent_agent
+    payload = _mcp_tool_event_payload(
+        tool, label, parent_agent=pa, iteration=iteration, escalation_label=escalation_label
+    )
+    await insert_run_event(run_id, "tool_started", label, payload)
     try:
         raw = await session.call_tool(tool, arguments)
         data = normalize_mcp_result(raw)
         state[output_key] = data
     finally:
-        await insert_run_event(run_id, "tool_completed", f"Completed {label}", {"tool": tool, "label": label})
+        await insert_run_event(run_id, "tool_completed", f"Completed {label}", dict(payload))
 
 
 def execute_condition(step: dict, state: dict, *, eval_fn: Callable[[str, dict], bool]) -> None:

@@ -80,6 +80,14 @@ def _build_llm_agents(workflow: dict, mcp_url: str) -> list[LlmAgent]:
     return agents
 
 
+def _primary_llm_agent_name(steps: list) -> str | None:
+    """First llm_agent in the stage — used to tag all stage MCP tools for admin UI grouping."""
+    for step in steps:
+        if step.get("type") == "llm_agent":
+            return step.get("name") or "llm"
+    return None
+
+
 class SwarmHybridAgent(BaseAgent):
     def __init__(
         self,
@@ -144,6 +152,7 @@ class SwarmHybridAgent(BaseAgent):
                             {"stage": stage_name, "stage_type": stage_type},
                         )
                         steps = stage.get("steps", [])
+                        primary_llm = _primary_llm_agent_name(steps)
                         for step in steps:
                             skip_if = step.get("skip_if")
                             if skip_if and eval_condition(skip_if, state):
@@ -153,6 +162,7 @@ class SwarmHybridAgent(BaseAgent):
                                     step, state, session,
                                     run_id=run_id, insert_run_event=_emit,
                                     tool_labels=tool_labels, render=render_template,
+                                    parent_agent=primary_llm,
                                 )
                             elif step.get("type") == "condition":
                                 execute_condition(step, state, eval_fn=eval_condition)
@@ -192,7 +202,7 @@ class SwarmHybridAgent(BaseAgent):
                                                     run_id,
                                                     "llm_message",
                                                     "Model responded (parse fallback)",
-                                                    {"text": final_text},
+                                                    {"text": final_text, "agent": agent.name, "parent_agent": agent.name},
                                                 )
                                     await _emit(
                                         run_id,
@@ -219,6 +229,7 @@ class SwarmHybridAgent(BaseAgent):
         tid = self._workflow.get("template_id", "")
         order_type = "esim_activation" if "esim" in tid else "number_porting"
         run_id = self._run_id
+        stage_name = stage.get("name") or "follow_up"
 
         for i in range(1, max_iter + 1):
             for ps in poll_steps:
@@ -227,6 +238,8 @@ class SwarmHybridAgent(BaseAgent):
                         ps, state, session,
                         run_id=run_id, insert_run_event=insert_run_event,
                         tool_labels=tool_labels, render=render_template,
+                        parent_agent=stage_name,
+                        iteration=i,
                     )
             if exit_if and eval_condition(exit_if, state):
                 return
@@ -248,6 +261,9 @@ class SwarmHybridAgent(BaseAgent):
                         state, session,
                         run_id=run_id, insert_run_event=insert_run_event,
                         tool_labels=tool_labels, render=render_template,
+                        parent_agent=stage_name,
+                        iteration=i,
+                        escalation_label=label,
                     )
                     esc = state.get("escalation_contact", {})
                     await execute_mcp_call(
@@ -259,6 +275,9 @@ class SwarmHybridAgent(BaseAgent):
                         state, session,
                         run_id=run_id, insert_run_event=insert_run_event,
                         tool_labels=tool_labels, render=render_template,
+                        parent_agent=stage_name,
+                        iteration=i,
+                        escalation_label=label,
                     )
                     break
             if i < max_iter:

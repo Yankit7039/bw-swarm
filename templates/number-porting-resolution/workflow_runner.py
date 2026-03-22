@@ -1,5 +1,6 @@
 """Run number porting resolution pipeline and write result/events to shared Postgres."""
 
+import json
 import logging
 import uuid
 from pathlib import Path
@@ -122,6 +123,65 @@ def _run_error_message(exc: BaseException) -> str:
     return text
 
 
+_LLM_LOG_MAX_LEN = 4000
+
+
+def _strip_json_fences(text: str) -> str:
+    if not text:
+        return ""
+    text = text.strip()
+    if text.startswith("```json"):
+        text = text[7:].strip()
+    elif text.startswith("```"):
+        text = text[3:].strip()
+    if text.endswith("```"):
+        text = text[:-3].strip()
+    return text
+
+
+def _try_compact_json_from_text(text: str) -> str | None:
+    """If text is or ends with a JSON object/array, return compact JSON for run_events display."""
+    s = _strip_json_fences(text)
+    try:
+        parsed = json.loads(s)
+        return json.dumps(parsed, ensure_ascii=False)
+    except json.JSONDecodeError:
+        pass
+    decoder = json.JSONDecoder()
+    for opener in ("{", "["):
+        last = len(s)
+        while True:
+            idx = s.rfind(opener, 0, last)
+            if idx == -1:
+                break
+            try:
+                parsed, _ = decoder.raw_decode(s, idx)
+                return json.dumps(parsed, ensure_ascii=False)
+            except json.JSONDecodeError:
+                last = idx
+    return None
+
+
+def _compact_llm_log_text(text: str) -> str:
+    """Store a short, UI-friendly model message in run_events (full reasoning stays in the model)."""
+    if not text:
+        return ""
+    compact = _try_compact_json_from_text(text)
+    if compact is not None:
+        return compact
+    t = text.strip()
+    if len(t) > _LLM_LOG_MAX_LEN:
+        return t[: _LLM_LOG_MAX_LEN - 24] + "\n... [truncated]"
+    return t
+
+
+def _adk_tool_payload(tool_name: str, label: str, parent_agent: str | None) -> dict:
+    p: dict = {"tool": tool_name, "label": label}
+    if parent_agent:
+        p["parent_agent"] = parent_agent
+    return p
+
+
 _run_session_service = InMemorySessionService()
 
 
@@ -170,11 +230,21 @@ async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
             for fc in fcs:
                 if _should_log_adk_tool(tool_context_agent, fc.name, adk_tool_allowlists):
                     label = TOOL_EVENT_LABELS.get(fc.name, f"Calling {fc.name}")
-                    await insert_run_event(run_id, "tool_started", label, {"tool": fc.name, "label": label})
+                    await insert_run_event(
+                        run_id,
+                        "tool_started",
+                        label,
+                        _adk_tool_payload(fc.name, label, tool_context_agent),
+                    )
             for fr in frs:
                 if _should_log_adk_tool(tool_context_agent, fr.name, adk_tool_allowlists):
                     label = TOOL_EVENT_LABELS.get(fr.name, fr.name)
-                    await insert_run_event(run_id, "tool_completed", f"Completed {label}", {"tool": fr.name, "label": label})
+                    await insert_run_event(
+                        run_id,
+                        "tool_completed",
+                        f"Completed {label}",
+                        _adk_tool_payload(fr.name, label, tool_context_agent),
+                    )
 
             event_text = _get_event_text(event)
             has_visible_tool = any(
@@ -182,7 +252,13 @@ async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
             ) or any(_should_log_adk_tool(tool_context_agent, fr.name, adk_tool_allowlists) for fr in frs)
             is_partial = getattr(event, "partial", False)
             if event_text and not has_visible_tool and not is_partial:
-                await insert_run_event(run_id, "llm_message", "Model responded", {"text": event_text, "agent": event_author})
+                llm_payload: dict = {
+                    "text": _compact_llm_log_text(event_text),
+                    "agent": event_author,
+                }
+                if event_author:
+                    llm_payload["parent_agent"] = event_author
+                await insert_run_event(run_id, "llm_message", "Model responded", llm_payload)
 
             if event.is_final_response():
                 if event.content and event.content.parts:

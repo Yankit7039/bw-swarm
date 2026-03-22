@@ -55,6 +55,7 @@ stages:
         instruction: |
           You are diagnosing a stuck number porting order. Analyse only the data below.
           Do not call any tools. Return ONLY a JSON object.
+          Do not output chain-of-thought, markdown code fences, or any text outside that JSON.
 
           Port validation: {{ port_validation }}
           Donor rejection: {{ donor_rejection }}
@@ -100,6 +101,7 @@ stages:
 
           Match the guidance to those names, then output only this JSON:
           {"tools_called": ["tool_name"], "resolution_attempted": true/false, "reasoning": "one sentence"}
+          Do not output chain-of-thought, markdown code fences, or any text outside that JSON.
         input_keys: [classify_result, runbook]
         output_key: route_result
         tool_filter:
@@ -156,6 +158,7 @@ stages:
           Respond ONLY as JSON:
           {"subject": "...", "body": "3-4 sentences max"}
           Do not invent any data.
+          Do not output chain-of-thought, markdown code fences, or any text outside that JSON.
         input_keys: [order_id, classify_result, route_result, escalation_contact]
         output_key: alert_message
 
