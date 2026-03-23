@@ -9,6 +9,7 @@ dependencies = [
   "uvicorn[standard]",
   "mcp",
   "pydantic",
+  "agentmail",
 ]
 
 [build-system]

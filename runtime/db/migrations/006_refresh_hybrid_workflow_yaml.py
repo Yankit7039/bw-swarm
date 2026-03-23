@@ -23,6 +23,13 @@ TEMPLATES = [
         "warm_pool_ref": "number-porting-adk-pool",
         "yaml_path": "templates/number-porting-resolution/number-porting-resolution.yaml",
     },
+    {
+        "template_id": "ticket-email-routing",
+        "name": "Ticket Email Routing",
+        "image": "ticket-email-routing-adk:latest",
+        "warm_pool_ref": "ticket-email-routing-adk-pool",
+        "yaml_path": "templates/ticket-email-routing/ticket-email-routing.yaml",
+    },
 ]
 
 

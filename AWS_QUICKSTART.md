@@ -13,7 +13,7 @@ Run all commands from the repo root.
 
 ---
 
-## 1. Configure OpenRouter API key
+## 1. Configure OpenRouter and AgentMail secrets
 
 Edit the tfvars file for your target environment:
 
@@ -28,9 +28,11 @@ Set:
 
 ```
 openrouter_api_key = "sk-or-v1-YOUR_KEY_HERE"
+agentmail_api_key  = "YOUR_AGENTMAIL_API_KEY"
+agentmail_inbox_id = "your-inbox@agentmail.to"
 ```
 
-Do not commit real API keys. Use local edits or a secrets manager.
+Use placeholders (`REPLACE_ME`) if you are not using AgentMail yet; the adapter will mock send. Do not commit real API keys. Use local edits or a secrets manager.
 
 **Remote state:** If this is a greenfield account, bootstrap once with `infra/terraform/backend` (init, apply). Otherwise the backend is already configured.
 

@@ -35,7 +35,8 @@ IMAGES = \
   swarm-admin-api:.:admin-api/Dockerfile \
   stuck-order-adk:templates/stuck-order-adk:templates/stuck-order-adk/Dockerfile \
   esim-activation-adk:templates/esim-activation-resolution:templates/esim-activation-resolution/Dockerfile \
-  number-porting-adk:templates/number-porting-resolution:templates/number-porting-resolution/Dockerfile
+  number-porting-adk:templates/number-porting-resolution:templates/number-porting-resolution/Dockerfile \
+  ticket-email-routing-adk:templates/ticket-email-routing:templates/ticket-email-routing/Dockerfile
 
 # ── K8s manifests in apply order ─────────────────────────────────────────────
 K8S_MANIFESTS = \
@@ -47,7 +48,8 @@ K8S_MANIFESTS = \
   infra/k8s-aws/admin-api-deployment.yaml \
   infra/k8s-aws/warmpool-stuck-order-adk.yaml \
   infra/k8s-aws/warmpool-esim-activation-adk.yaml \
-  infra/k8s-aws/warmpool-number-porting-adk.yaml
+  infra/k8s-aws/warmpool-number-porting-adk.yaml \
+  infra/k8s-aws/warmpool-ticket-email-routing-adk.yaml
 
 # =============================================================================
 # PUBLIC TARGETS

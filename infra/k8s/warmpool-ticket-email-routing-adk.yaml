@@ -1,0 +1,60 @@
+# SandboxTemplate + SandboxWarmPool for ticket email routing (agent-sandbox v0.1.1).
+# Build template image from: templates/ticket-email-routing. Requires adk-secrets.
+---
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxTemplate
+metadata:
+  name: ticket-email-routing-adk-pool
+spec:
+  podTemplate:
+    spec:
+      containers:
+        - name: ticket-email-routing-agent
+          image: ticket-email-routing-adk:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8888
+              name: http
+          env:
+            - name: ENTRYPOINT_PORT
+              value: "8888"
+            - name: ADAPTER_URL
+              value: "http://adapter:8080"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: database-url
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: openrouter-api-key
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8888
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8888
+            initialDelaySeconds: 2
+            periodSeconds: 10
+---
+apiVersion: extensions.agents.x-k8s.io/v1alpha1
+kind: SandboxWarmPool
+metadata:
+  name: ticket-email-routing-adk-pool
+spec:
+  replicas: 3
+  sandboxTemplateRef:
+    name: ticket-email-routing-adk-pool

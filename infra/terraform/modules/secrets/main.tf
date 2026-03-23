@@ -4,8 +4,10 @@ locals {
   database_url = "postgresql+asyncpg://swarm:${var.db_password}@${var.db_endpoint}:5432/swarm"
 
   secret_payload = jsonencode({
-    "database-url"      = local.database_url
+    "database-url"       = local.database_url
     "openrouter-api-key" = var.openrouter_api_key
+    "agentmail-api-key"  = var.agentmail_api_key
+    "agentmail-inbox-id" = var.agentmail_inbox_id
   })
 }
 

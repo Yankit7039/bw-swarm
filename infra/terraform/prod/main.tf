@@ -74,6 +74,7 @@ module "ecr" {
     "stuck-order-adk",
     "esim-activation-adk",
     "number-porting-adk",
+    "ticket-email-routing-adk",
     "swarm-adapter",
     "swarm-runtime",
     "swarm-admin-api",
@@ -136,6 +137,8 @@ module "secrets" {
   recovery_window_in_days = 0
 
   openrouter_api_key = var.openrouter_api_key
+  agentmail_api_key  = var.agentmail_api_key
+  agentmail_inbox_id = var.agentmail_inbox_id
   db_endpoint        = module.rds.rds_endpoint
   db_password        = random_password.db.result
 }

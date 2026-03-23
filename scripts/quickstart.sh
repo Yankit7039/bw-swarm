@@ -4,6 +4,8 @@
 # Run from repo root:
 #   OPENROUTER_API_KEY=sk-or-v1-... ./scripts/quickstart.sh
 #   ./scripts/quickstart.sh sk-or-v1-...
+# Optional (AgentMail — adapter MCP send_email; leave unset to use mock sends):
+#   AGENTMAIL_API_KEY=... AGENTMAIL_INBOX_ID=agent@... ./scripts/quickstart.sh
 set -e
 
 # Colors
@@ -35,6 +37,8 @@ if [ "$missing" -ne 0 ]; then
 fi
 
 OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-$1}"
+AGENTMAIL_API_KEY="${AGENTMAIL_API_KEY:-}"
+AGENTMAIL_INBOX_ID="${AGENTMAIL_INBOX_ID:-}"
 if [ -z "$OPENROUTER_API_KEY" ] || [ "$OPENROUTER_API_KEY" = "sk-or-v1-..." ]; then
   echo -e "${RED}OPENROUTER_API_KEY is not set.${NC}"
   echo -e "${YELLOW}Set it via env or first arg, for example:${NC}"
@@ -52,6 +56,7 @@ echo -e "${BLUE}==> 2. Build images${NC}"
 docker build -t stuck-order-adk:latest templates/stuck-order-adk
 docker build -t esim-activation-adk:latest templates/esim-activation-resolution
 docker build -t number-porting-adk:latest templates/number-porting-resolution
+docker build -t ticket-email-routing-adk:latest templates/ticket-email-routing
 docker build -t swarm-adapter:latest adapter
 docker build -f runtime/Dockerfile -t swarm-runtime:latest .
 docker build -f admin-api/Dockerfile -t swarm-admin-api:latest .
@@ -61,6 +66,7 @@ echo -e "${BLUE}==> 3. Load images into Kind${NC}"
 kind load docker-image stuck-order-adk:latest
 kind load docker-image esim-activation-adk:latest
 kind load docker-image number-porting-adk:latest
+kind load docker-image ticket-email-routing-adk:latest
 kind load docker-image swarm-adapter:latest
 kind load docker-image swarm-runtime:latest
 kind load docker-image swarm-admin-api:latest
@@ -75,6 +81,8 @@ echo -e "${BLUE}==> 5. Create secret (adk-secrets)${NC}"
 kubectl create secret generic adk-secrets \
   --from-literal=database-url='postgresql+asyncpg://swarm:swarm@postgres:5432/swarm' \
   --from-literal=openrouter-api-key="$OPENROUTER_API_KEY" \
+  --from-literal=agentmail-api-key="$AGENTMAIL_API_KEY" \
+  --from-literal=agentmail-inbox-id="$AGENTMAIL_INBOX_ID" \
   >/dev/null 2>&1 || {
   echo -e "${YELLOW}Secret adk-secrets already exists, reusing it.${NC}"
 }
@@ -88,6 +96,7 @@ kubectl apply -f infra/k8s/runtime-deployment.yaml
 kubectl apply -f infra/k8s/warmpool-stuck-order-adk.yaml
 kubectl apply -f infra/k8s/warmpool-esim-activation-adk.yaml
 kubectl apply -f infra/k8s/warmpool-number-porting-adk.yaml
+kubectl apply -f infra/k8s/warmpool-ticket-email-routing-adk.yaml
 kubectl apply -f infra/k8s/admin-api-deployment.yaml
 
 echo

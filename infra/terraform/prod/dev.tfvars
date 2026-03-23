@@ -1,4 +1,6 @@
 environment_prefix = "swarm-dev"
 openrouter_api_key = "sk-or-v1-"
+agentmail_api_key  = "REPLACE_ME"
+agentmail_inbox_id = "REPLACE_ME"
 route53_zone_id    = "Z01004903J4JEPQ9IWE8V"
 subdomain          = "dev"

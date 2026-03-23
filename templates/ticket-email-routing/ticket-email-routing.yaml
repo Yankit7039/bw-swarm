@@ -1,0 +1,64 @@
+template_id: ticket-email-routing
+version: "1.0"
+description: Fetches ticket by order, resolves escalation contact, drafts email, sends via AgentMail.
+
+input:
+  required:
+    - order_id
+
+adapters:
+  - siebel_crm
+  - escalation_matrix
+  - agentmail
+
+stages:
+
+  - name: classify
+    type: deterministic
+    steps:
+      - name: fetch_ticket
+        type: mcp_call
+        tool: siebel_crm__get_ticket_by_order
+        input:
+          order_id: "{{ order_id }}"
+        output_key: ticket_details
+
+  - name: lookup
+    type: deterministic
+    steps:
+      - name: lookup_contact
+        type: mcp_call
+        tool: escalation_matrix__lookup
+        input:
+          department: "{{ ticket_details['department'] }}"
+        output_key: contact
+
+  - name: notify
+    type: hybrid
+    steps:
+      - name: draft_email
+        type: llm_agent
+        description: Draft a concise escalation email from ticket context only
+        instruction: |
+          Draft a professional escalation email. Use ONLY the facts below. Do not invent data.
+
+          Order ID: {{ order_id }}
+          Ticket: {{ ticket_details }}
+          Escalation recipient name: {{ contact['name'] }}
+
+          Respond ONLY as JSON, no markdown, no extra text:
+          {"subject": "...", "body": "3-4 short lines max"}
+        input_keys: [order_id, ticket_details, contact]
+        output_key: email_draft
+        fallback_state:
+          subject: Escalation
+          body: See ticket system for details.
+
+      - name: send_email
+        type: mcp_call
+        tool: agentmail__send_email
+        input:
+          to: "{{ contact['email'] }}"
+          subject: "{{ email_draft['subject'] }}"
+          body: "{{ email_draft['body'] }}"
+        output_key: email_result

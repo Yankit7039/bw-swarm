@@ -1,4 +1,6 @@
 environment_prefix = "swarm-prod"
-openrouter_api_key = "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"
+openrouter_api_key = "sk-or-v1-"
+agentmail_api_key  = "REPLACE_ME"
+agentmail_inbox_id = "REPLACE_ME"
 route53_zone_id    = "Z01004903J4JEPQ9IWE8V"
 subdomain          = "swarm"

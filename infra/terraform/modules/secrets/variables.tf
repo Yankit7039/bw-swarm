@@ -21,6 +21,18 @@ variable "openrouter_api_key" {
   sensitive   = true
 }
 
+variable "agentmail_api_key" {
+  description = "AgentMail API key stored in Secrets Manager."
+  type        = string
+  sensitive   = true
+}
+
+variable "agentmail_inbox_id" {
+  description = "AgentMail inbox id (sender inbox) stored in Secrets Manager."
+  type        = string
+  sensitive   = true
+}
+
 variable "db_endpoint" {
   description = "RDS endpoint hostname used to build database URL."
   type        = string

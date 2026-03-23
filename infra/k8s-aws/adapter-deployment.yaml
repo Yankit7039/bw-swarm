@@ -24,6 +24,16 @@ spec:
           env:
             - name: MCP_MOUNT_PATH
               value: "/mcp"
+            - name: AGENTMAIL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: agentmail-api-key
+            - name: AGENTMAIL_INBOX_ID
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: agentmail-inbox-id
           resources:
             requests:
               memory: "128Mi"

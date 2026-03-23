@@ -18,6 +18,20 @@ variable "openrouter_api_key" {
   default = "REPLACE_ME"
 }
 
+variable "agentmail_api_key" {
+  description = "AgentMail API key stored in Secrets Manager."
+  type        = string
+  sensitive   = true
+  default     = "REPLACE_ME"
+}
+
+variable "agentmail_inbox_id" {
+  description = "AgentMail inbox id (sender inbox) stored in Secrets Manager."
+  type        = string
+  sensitive   = true
+  default     = "REPLACE_ME"
+}
+
 variable "route53_zone_id" {
   description = "Route 53 hosted zone ID for singledigit.team."
   type        = string

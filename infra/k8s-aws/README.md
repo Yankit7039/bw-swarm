@@ -33,6 +33,9 @@ kubectl apply -f infra/k8s-aws/adapter-deployment.yaml
 kubectl apply -f infra/k8s-aws/runtime-deployment.yaml
 kubectl apply -f infra/k8s-aws/admin-api-deployment.yaml
 kubectl apply -f infra/k8s-aws/warmpool-stuck-order-adk.yaml
+kubectl apply -f infra/k8s-aws/warmpool-esim-activation-adk.yaml
+kubectl apply -f infra/k8s-aws/warmpool-number-porting-adk.yaml
+kubectl apply -f infra/k8s-aws/warmpool-ticket-email-routing-adk.yaml
 kubectl apply -f infra/k8s-aws/ingress.yaml
 kubectl apply -f infra/k8s-aws/ingress-admin.yaml
 ```
@@ -42,7 +45,7 @@ If the CRD names change in a newer agent-sandbox release, replace the `kubectl w
 ### Notes
 
 - **Database**: Postgres runs in **RDS**, not in-cluster. The `DATABASE_URL` comes from the `adk-secrets` Kubernetes secret.
-- **Secrets**: `adk-secrets` is created by External Secrets Operator from AWS Secrets Manager via `infra/k8s-aws/external-secret.yaml`.
+- **Secrets**: `adk-secrets` is created by External Secrets Operator from AWS Secrets Manager via `infra/k8s-aws/external-secret.yaml`. It includes `database-url`, `openrouter-api-key`, and (when set in Terraform) `agentmail-api-key` / `agentmail-inbox-id` for the adapter’s AgentMail MCP tool.
 - **Ingress / ALB cost**:
   - `infra/k8s-aws/ingress.yaml` creates an internet-facing ALB for the `runtime` service:
     - `/` → `runtime`
