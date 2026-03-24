@@ -11,6 +11,7 @@ from app.adapters.ericsson.adapter import register_ericsson_tools
 from app.adapters.escalation_matrix.adapter import register_escalation_matrix_tools
 from app.adapters.esim_manager.adapter import register_esim_manager_tools
 from app.adapters.fraud_engine.adapter import register_fraud_engine_tools
+from app.adapters.jira.adapter import register_jira_tools
 from app.adapters.netcracker.adapter import register_netcracker_tools
 from app.adapters.notification.adapter import register_notification_tools
 from app.adapters.porting_gateway.adapter import register_porting_gateway_tools
@@ -62,6 +63,7 @@ def _register_all_tools(mcp: Any) -> None:
     register_amdocs_oms_tools(mcp)
     register_escalation_matrix_tools(mcp)
     register_agentmail_tools(mcp)
+    register_jira_tools(mcp)
     register_siebel_crm_tools(mcp)
     register_ericsson_tools(mcp)
     register_netcracker_tools(mcp)

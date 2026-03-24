@@ -44,3 +44,21 @@ variable "db_password" {
   sensitive   = true
 }
 
+variable "jira_email" {
+  description = "Jira Cloud account email for REST API basic auth (adapter MCP tools)."
+  type        = string
+  sensitive   = true
+}
+
+variable "jira_api_token" {
+  description = "Jira Cloud API token for REST API basic auth."
+  type        = string
+  sensitive   = true
+}
+
+variable "jira_base" {
+  description = "Jira Cloud site base URL (no trailing slash), e.g. https://your-site.atlassian.net"
+  type        = string
+  default     = "https://swarm-bw.atlassian.net"
+}
+

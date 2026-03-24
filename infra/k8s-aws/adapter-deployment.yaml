@@ -34,6 +34,21 @@ spec:
                 secretKeyRef:
                   name: adk-secrets
                   key: agentmail-inbox-id
+            - name: JIRA_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: jira-email
+            - name: JIRA_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: jira-api-token
+            - name: JIRA_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: jira-base
           resources:
             requests:
               memory: "128Mi"

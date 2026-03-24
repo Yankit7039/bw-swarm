@@ -139,6 +139,9 @@ module "secrets" {
   openrouter_api_key = var.openrouter_api_key
   agentmail_api_key  = var.agentmail_api_key
   agentmail_inbox_id = var.agentmail_inbox_id
+  jira_email         = var.jira_email
+  jira_api_token     = var.jira_api_token
+  jira_base          = var.jira_base
   db_endpoint        = module.rds.rds_endpoint
   db_password        = random_password.db.result
 }

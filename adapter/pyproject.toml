@@ -10,6 +10,7 @@ dependencies = [
   "mcp",
   "pydantic",
   "agentmail",
+  "requests",
 ]
 
 [build-system]

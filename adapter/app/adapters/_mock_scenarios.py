@@ -29,6 +29,28 @@ def resolution_bucket_for_order_id(order_id: str) -> int:
     return mapping.get(key, (idx - 1) % 4)
 
 
+def ticket_email_routing_indices(order_id: str) -> tuple[int, int]:
+    """
+    Deterministic department + issue row for ticket-email-routing mock data only.
+
+    Parses the last hyphen segment as an integer when possible (ORDER-001 → 1, ORD-123 → 123).
+    Non-numeric suffixes behave like n=1.
+
+    - dept_idx = (n - 1) % 4  → billing, porting, network_provisioning, field_ops cycle
+    - issue_idx = ((n - 1) // 4) % 4  → four distinct blocked-reason templates per department lane
+    """
+    suffix = (order_id or "").strip().upper().split("-")[-1]
+    if suffix.isdigit():
+        n = int(suffix)
+    else:
+        n = 1
+    if n < 1:
+        n = 1
+    dept_idx = (n - 1) % 4
+    issue_idx = ((n - 1) // 4) % 4
+    return dept_idx, issue_idx
+
+
 def now_iso() -> str:
     # Keep deterministic-ish timestamps out of scope for now; return a plausible constant.
     return "2024-01-15T10:05:00Z"

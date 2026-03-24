@@ -7,7 +7,7 @@ input:
     - order_id
 
 adapters:
-  - siebel_crm
+  - jira
   - escalation_matrix
   - agentmail
 
@@ -18,10 +18,36 @@ stages:
     steps:
       - name: fetch_ticket
         type: mcp_call
-        tool: siebel_crm__get_ticket_by_order
+        tool: jira__get_ticket
         input:
           order_id: "{{ order_id }}"
         output_key: ticket_details
+      - name: transition_ticket
+        type: mcp_call
+        tool: jira__transition_ticket
+        input:
+          order_id: "{{ order_id }}"
+          target_status: "In Progress"
+        output_key: transition_result
+      - name: route_department
+        type: llm_agent
+        description: Choose escalation department from ticket context
+        instruction: |
+          You route internal escalations. Given the order id and ticket context below, pick exactly one department key for the escalation matrix.
+
+          Allowed values for "department" (string, exactly one of):
+          billing, porting, network_provisioning, field_ops
+
+          Base your choice only on the ticket title, status, and description text (including description_plain if present). If unclear, choose the closest match.
+
+          Order ID: {{ order_id }}
+          Ticket context: {{ ticket_details }}
+
+          Respond ONLY as JSON, no markdown, no extra text:
+          {"department": "..."}
+        output_key: routing
+        fallback_state:
+          department: ""
 
   - name: lookup
     type: deterministic
@@ -30,29 +56,47 @@ stages:
         type: mcp_call
         tool: escalation_matrix__lookup
         input:
-          department: "{{ ticket_details['department'] }}"
+          department: "{{ routing['department'] }}"
         output_key: contact
 
   - name: notify
     type: hybrid
     steps:
-      - name: draft_email
+      - name: notify
         type: llm_agent
         description: Draft a concise escalation email from ticket context only
         instruction: |
-          Draft a professional escalation email. Use ONLY the facts below. Do not invent data.
+          You are Swarm Agent. You are integrated with CRM/ticket data and routing rules: you have already classified where this order is stuck and selected the escalation recipient below from the matrix. Write an internal handoff email so that person can start work immediately—informative and direct, not a generic “please advise” request.
+
+          Rules:
+          - Use ONLY the facts in Order ID / Ticket context / Escalation recipient below. Do not invent ticket IDs, systems, customer names, or details not present.
+          - Subject: specific (order id + issue in plain language), at most about 15 words.
+          - Body: about 120–200 words (roughly 3–5 short paragraphs). Be clear and scannable; sound like a colleague handing off a case, not a template.
+          - Opening: one short line addressing the escalation recipient by name/role (Escalation recipient).
+          - In the first one or two sentences of the body, state the order id explicitly (the value from Order ID below, e.g. ORD-xxx). Add customer or product context only if it appears in the ticket context.
+          - Describe what is blocked using blocked_reason / ticket fields; state customer impact only if present.
+          - Give concrete next step(s) for this recipient (from next_action / ticket text). Use a short numbered list if several steps help.
+          - One sentence on why they are the right person: frame as department or escalation ownership for this failure mode (e.g. billing proration, LNP reject). Do not say “queue,” “your queue,” or “owns this queue.”
+          - Do not use: “queue,” “please advise,” “urgently,” “at your earliest convenience,” or similar filler unless that exact wording appears in the ticket data.
+          - End the body with a blank line, then exactly:
+            Thank you,
+            Swarm Agent
 
           Order ID: {{ order_id }}
-          Ticket: {{ ticket_details }}
-          Escalation recipient name: {{ contact['name'] }}
+          Ticket context: {{ ticket_details }}
+          Escalation recipient: {{ contact['name'] }}
 
           Respond ONLY as JSON, no markdown, no extra text:
-          {"subject": "...", "body": "3-4 short lines max"}
+          {"subject": "...", "body": "..."}
         input_keys: [order_id, ticket_details, contact]
         output_key: email_draft
         fallback_state:
-          subject: Escalation
-          body: See ticket system for details.
+          subject: "Escalation — order {{ order_id }} needs attention"
+          body: |
+            Order {{ order_id }}: we could not auto-draft the full message. Please open this order in the CRM, review the ticket summary and escalation match for {{ contact['name'] }}, and clear the blocker so the order can progress.
+
+            Thank you,
+            Swarm Agent
 
       - name: send_email
         type: mcp_call

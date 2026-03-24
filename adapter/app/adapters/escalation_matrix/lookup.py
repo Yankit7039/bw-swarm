@@ -10,6 +10,10 @@ _MATRIX: dict[str, dict[str, str]] = {
         "name": "Billing Operations Lead",
         "email": "deepam.goyal@boringworkflows.ai",
     },
+    "porting": {
+        "name": "Porting & LNP Lead",
+        "email": "deepamgoyal77@gmail.com",
+    },
     "network_provisioning": {
         "name": "Network Provisioning Manager",
         "email": "deepam02goyal@gmail.com",

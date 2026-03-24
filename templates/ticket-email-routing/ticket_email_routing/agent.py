@@ -33,6 +33,15 @@ MCP_URL = f"{ADAPTER_URL}/mcp"
 _logger = logging.getLogger(__name__)
 
 
+def _render_fallback_state(fallback: dict[str, Any], state: dict) -> dict[str, Any]:
+    """Apply ``{{ }}`` templating to fallback subject/body so order_id and contact render."""
+    out = dict(fallback)
+    for key in ("subject", "body"):
+        if key in out and isinstance(out[key], str):
+            out[key] = render_template(out[key], state)
+    return out
+
+
 def _make_instruction_fn(step: dict):
     def fn(ctx: Any) -> str:
         return render_template(step["instruction"], ctx.session.state)
@@ -145,14 +154,25 @@ class SwarmHybridAgent(BaseAgent):
                                 {"stage": stage_name, "stage_type": "poll_loop"},
                             )
                             continue
+                        stage_payload_base = {"stage": stage_name, "stage_type": stage_type}
+                        if stage_name:
+                            stage_payload_base["parent_agent"] = stage_name
                         await _emit(
                             run_id,
                             "workflow_stage_started",
                             f"Stage {stage_name} started",
-                            {"stage": stage_name, "stage_type": stage_type},
+                            dict(stage_payload_base),
                         )
+                        if stage_type == "deterministic" and stage_name:
+                            await _emit(
+                                run_id,
+                                "agent_started",
+                                f"Starting {stage_name}",
+                                {"agent": stage_name},
+                            )
                         steps = stage.get("steps", [])
                         primary_llm = _primary_llm_agent_name(steps)
+                        tool_parent = primary_llm or stage_name or None
                         for step in steps:
                             skip_if = step.get("skip_if")
                             if skip_if and eval_condition(skip_if, state):
@@ -162,7 +182,7 @@ class SwarmHybridAgent(BaseAgent):
                                     step, state, session,
                                     run_id=run_id, insert_run_event=_emit,
                                     tool_labels=tool_labels, render=render_template,
-                                    parent_agent=primary_llm,
+                                    parent_agent=tool_parent,
                                 )
                             elif step.get("type") == "condition":
                                 execute_condition(step, state, eval_fn=eval_condition)
@@ -195,7 +215,7 @@ class SwarmHybridAgent(BaseAgent):
                                         else:
                                             fallback = step.get("fallback_state") or {}
                                             if output_key and fallback:
-                                                state[output_key] = fallback
+                                                state[output_key] = _render_fallback_state(fallback, state)
                                             elif insert_run_event and run_id:
                                                 await _emit(
                                                     run_id,
@@ -209,11 +229,18 @@ class SwarmHybridAgent(BaseAgent):
                                         f"Completed {agent.name}",
                                         {"agent": agent.name},
                                     )
+                        if stage_type == "deterministic" and stage_name:
+                            await _emit(
+                                run_id,
+                                "agent_completed",
+                                f"Completed {stage_name}",
+                                {"agent": stage_name},
+                            )
                         await _emit(
                             run_id,
                             "workflow_stage_completed",
                             f"Stage {stage_name} completed",
-                            {"stage": stage_name, "stage_type": stage_type},
+                            dict(stage_payload_base),
                         )
 
     async def _run_poll_loop(

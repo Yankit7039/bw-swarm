@@ -96,6 +96,8 @@ This will deploy:
 
 `agentmail_api_key` and `agentmail_inbox_id` are stored in Secrets Manager with `openrouter_api_key` and synced to the `adk-secrets` Kubernetes secret. Use `REPLACE_ME` placeholders if AgentMail is not configured yet (the adapter will mock email sends).
 
+`jira_email`, `jira_api_token`, and `jira_base` are also stored in the same secret (keys `jira-email`, `jira-api-token`, `jira-base`) for the adapter’s Jira MCP tools used by the ticket-email-routing template.
+
 #### PowerShell
 
 ```powershell
@@ -104,6 +106,9 @@ cd C:\Users\Dell\Desktop\bw\bw-swarm
 $env:TF_VAR_openrouter_api_key = "sk-or-v1-REPLACE_ME"
 $env:TF_VAR_agentmail_api_key = "REPLACE_ME"
 $env:TF_VAR_agentmail_inbox_id = "REPLACE_ME"
+$env:TF_VAR_jira_email = "REPLACE_ME"
+$env:TF_VAR_jira_api_token = "REPLACE_ME"
+$env:TF_VAR_jira_base = "https://swarm-bw.atlassian.net"
 ```
 
 #### Bash
@@ -114,6 +119,9 @@ cd /path/to/bw-swarm
 export TF_VAR_openrouter_api_key="sk-or-v1-REPLACE_ME"
 export TF_VAR_agentmail_api_key="REPLACE_ME"
 export TF_VAR_agentmail_inbox_id="REPLACE_ME"
+export TF_VAR_jira_email="REPLACE_ME"
+export TF_VAR_jira_api_token="REPLACE_ME"
+export TF_VAR_jira_base="https://swarm-bw.atlassian.net"
 ```
 
 ### 3.2 Init and apply prod

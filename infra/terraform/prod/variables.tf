@@ -32,6 +32,26 @@ variable "agentmail_inbox_id" {
   default     = "REPLACE_ME"
 }
 
+variable "jira_email" {
+  description = "Jira Cloud account email stored in Secrets Manager (adapter Jira MCP tools)."
+  type        = string
+  sensitive   = true
+  default     = "REPLACE_ME"
+}
+
+variable "jira_api_token" {
+  description = "Jira Cloud API token stored in Secrets Manager."
+  type        = string
+  sensitive   = true
+  default     = "REPLACE_ME"
+}
+
+variable "jira_base" {
+  description = "Jira Cloud site base URL stored in Secrets Manager (jira-base key)."
+  type        = string
+  default     = "https://swarm-bw.atlassian.net"
+}
+
 variable "route53_zone_id" {
   description = "Route 53 hosted zone ID for singledigit.team."
   type        = string

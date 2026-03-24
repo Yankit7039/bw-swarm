@@ -6,6 +6,9 @@
 #   ./scripts/quickstart.sh sk-or-v1-...
 # Optional (AgentMail — adapter MCP send_email; leave unset to use mock sends):
 #   AGENTMAIL_API_KEY=... AGENTMAIL_INBOX_ID=agent@... ./scripts/quickstart.sh
+# Optional (Jira — adapter MCP jira__get_ticket / jira__transition_ticket for ticket-email-routing):
+#   JIRA_EMAIL=... JIRA_API_TOKEN=... JIRA_BASE=https://your-site.atlassian.net ./scripts/quickstart.sh
+#   (defaults: empty email/token, JIRA_BASE=https://swarm-bw.atlassian.net — empty Jira creds mean Jira tools return errors until set)
 set -e
 
 # Colors
@@ -39,6 +42,9 @@ fi
 OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-$1}"
 AGENTMAIL_API_KEY="${AGENTMAIL_API_KEY:-}"
 AGENTMAIL_INBOX_ID="${AGENTMAIL_INBOX_ID:-}"
+JIRA_EMAIL="${JIRA_EMAIL:-}"
+JIRA_API_TOKEN="${JIRA_API_TOKEN:-}"
+JIRA_BASE="${JIRA_BASE:-https://swarm-bw.atlassian.net}"
 if [ -z "$OPENROUTER_API_KEY" ] || [ "$OPENROUTER_API_KEY" = "sk-or-v1-..." ]; then
   echo -e "${RED}OPENROUTER_API_KEY is not set.${NC}"
   echo -e "${YELLOW}Set it via env or first arg, for example:${NC}"
@@ -83,6 +89,9 @@ kubectl create secret generic adk-secrets \
   --from-literal=openrouter-api-key="$OPENROUTER_API_KEY" \
   --from-literal=agentmail-api-key="$AGENTMAIL_API_KEY" \
   --from-literal=agentmail-inbox-id="$AGENTMAIL_INBOX_ID" \
+  --from-literal=jira-email="$JIRA_EMAIL" \
+  --from-literal=jira-api-token="$JIRA_API_TOKEN" \
+  --from-literal=jira-base="$JIRA_BASE" \
   >/dev/null 2>&1 || {
   echo -e "${YELLOW}Secret adk-secrets already exists, reusing it.${NC}"
 }
