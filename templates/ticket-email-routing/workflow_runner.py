@@ -11,11 +11,19 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-from run_db import insert_run_event, update_run_status
+from run_db import (
+    clear_followup_columns,
+    followup_due_after_seconds,
+    insert_run_event,
+    update_run_status,
+)
 from ticket_email_routing.agent import build_root_agent
 
 _LOG = logging.getLogger(__name__)
 _ERROR_MESSAGE_MAX_LEN = 16000
+
+FOLLOW_UP_LIMIT = 3
+FOLLOW_UP_INTERVAL_SEC = 120
 
 APP_NAME = "ticket_email_routing"
 WORKFLOW_PATH = Path(__file__).resolve().parent / "ticket-email-routing.yaml"
@@ -46,9 +54,11 @@ def _should_log_adk_tool(
 
 
 TOOL_EVENT_LABELS = {
-    "siebel_crm__get_ticket_by_order": "Siebel CRM: Getting ticket by order",
+    "jira__get_ticket": "Jira: Getting ticket",
+    "jira__transition_ticket": "Jira: Transitioning ticket",
     "escalation_matrix__lookup": "Escalation matrix: Looking up contact",
     "agentmail__send_email": "AgentMail: Sending email",
+    "agentmail__send_followup": "AgentMail: Sending follow-up in thread",
 }
 
 
@@ -176,23 +186,75 @@ def _adk_tool_payload(tool_name: str, label: str, parent_agent: str | None) -> d
     return p
 
 
+def _tool_data_blob(raw: object) -> dict:
+    if not isinstance(raw, dict):
+        return {}
+    if raw.get("data") is not None and isinstance(raw["data"], dict):
+        return raw["data"]
+    return raw
+
+
+def _message_id_from_email_result(email_result: object) -> str | None:
+    d = _tool_data_blob(email_result)
+    mid = d.get("message_id")
+    if mid is not None and str(mid).strip():
+        return str(mid).strip()
+    return None
+
+
+def _email_send_succeeded(email_result: object) -> bool:
+    d = _tool_data_blob(email_result)
+    if d.get("ok") is False:
+        return False
+    return bool(d.get("sent"))
+
+
+def _reply_succeeded(reply_result: object) -> bool:
+    d = _tool_data_blob(reply_result)
+    if d.get("ok") is False:
+        return False
+    return bool(d.get("sent"))
+
+
+def _coerce_bool(v: object) -> bool:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        return v.strip().lower() in ("true", "1", "yes")
+    return bool(v)
+
+
 _run_session_service = InMemorySessionService()
 
 
 async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
-    order_id = (payload.get("order_id") or "").strip()
+    fc_in = payload.get("followup_context") or {}
+    is_followup = bool(fc_in)
+    order_id = (payload.get("order_id") or fc_in.get("order_id") or "").strip()
     if not order_id:
         await update_run_status(run_id, "failed", error_message="payload.order_id required")
         return
 
-    await update_run_status(run_id, "running")
+    await update_run_status(run_id, "running", follow_up_in_progress=False)
     session_id = uuid.uuid4().hex
+
+    user_text = (
+        f"Follow up on order {order_id}: check Jira, reply in the existing AgentMail thread if still open."
+        if is_followup
+        else f"Route ticket email escalation. Order ID: {order_id}."
+    )
+
     try:
         session = await _run_session_service.create_session(
             app_name=APP_NAME,
             user_id="api",
             session_id=session_id,
-            state={"order_id": order_id},
+            state={
+                "order_id": order_id,
+                "run_id": str(run_id),
+                "is_followup": is_followup,
+                **({"followup_context": fc_in} if is_followup else {}),
+            },
         )
 
         await insert_run_event(run_id, "workflow_started", "Workflow started", None)
@@ -208,10 +270,9 @@ async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
 
         content = types.Content(
             role="user",
-            parts=[types.Part.from_text(text=f"Route ticket email escalation. Order ID: {order_id}.")],
+            parts=[types.Part.from_text(text=user_text)],
         )
         final_response_text = None
-        final_state = {}
         adk_tool_allowlists = _llm_agent_tool_allowlists(WORKFLOW_PATH)
 
         async for event in runner.run_async(
@@ -263,7 +324,18 @@ async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
                     final_response_text = getattr(part, "text", None) or str(part)
 
         final_state_source = root_agent._final_session_state or {}
-        for key in ("ticket_details", "contact", "email_draft", "email_result"):
+        keys = (
+            "ticket_details",
+            "contact",
+            "email_draft",
+            "email_result",
+            "current_ticket",
+            "resolved",
+            "followup_draft",
+            "reply_result",
+        )
+        final_state: dict = {}
+        for key in keys:
             if key in final_state_source:
                 final_state[key] = final_state_source[key]
 
@@ -272,8 +344,212 @@ async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
         if final_response_text is None:
             final_response_text = "Workflow completed."
 
-        await insert_run_event(run_id, "workflow_completed", "Workflow completed", None)
-        await update_run_status(run_id, "completed", result={"text": final_response_text, "state": final_state})
+        try:
+            if is_followup:
+                terminal = await _persist_after_followup_pod(run_id, fc_in, final_state)
+            else:
+                terminal = await _persist_after_initial_pod(run_id, order_id, final_state)
+        except Exception as persist_exc:
+            _LOG.exception("post-agent persist failed run_id=%s", run_id)
+            await insert_run_event(
+                run_id,
+                "workflow_error",
+                "Saving run outcome to the database failed after the workflow finished.",
+                {"error": str(persist_exc)},
+            )
+            await update_run_status(
+                run_id,
+                "failed",
+                error_message=_run_error_message(persist_exc),
+                follow_up_in_progress=False,
+            )
+            return
+
+        if terminal in ("completed", "exhausted"):
+            await insert_run_event(run_id, "workflow_completed", "Workflow completed", None)
     except Exception as e:
         _LOG.exception("run_workflow failed run_id=%s", run_id)
-        await update_run_status(run_id, "failed", error_message=_run_error_message(e))
+        await update_run_status(run_id, "failed", error_message=_run_error_message(e), follow_up_in_progress=False)
+
+
+async def _persist_after_initial_pod(
+    run_id: uuid.UUID, order_id: str, final_state: dict
+) -> str | None:
+    contact = final_state.get("contact") or {}
+    email_draft = final_state.get("email_draft") or {}
+    email_result = final_state.get("email_result")
+
+    if not _email_send_succeeded(email_result):
+        await update_run_status(
+            run_id,
+            "failed",
+            error_message="Initial escalation email did not send successfully.",
+            follow_up_in_progress=False,
+        )
+        return None
+
+    message_id = _message_id_from_email_result(email_result)
+    if not message_id:
+        await update_run_status(
+            run_id,
+            "failed",
+            error_message="AgentMail send did not return message_id; cannot schedule follow-ups.",
+            follow_up_in_progress=False,
+        )
+        return None
+
+    er = _tool_data_blob(email_result)
+    thread_id = er.get("thread_id")
+    contact_name = contact.get("name") if isinstance(contact, dict) else None
+    contact_email = contact.get("email") if isinstance(contact, dict) else None
+
+    state_obj: dict = {
+        "order_id": order_id,
+        "contact_name": contact_name,
+        "contact_email": contact_email,
+        "message_id": message_id,
+        "thread_id": thread_id,
+        "follow_up_count": 0,
+        "followup_attempt_number": 1,
+        "follow_up_limit": FOLLOW_UP_LIMIT,
+        "follow_up_interval_seconds": FOLLOW_UP_INTERVAL_SEC,
+        "last_email_subject": email_draft.get("subject") if isinstance(email_draft, dict) else None,
+        "last_email_body": email_draft.get("body") if isinstance(email_draft, dict) else None,
+    }
+
+    due = followup_due_after_seconds(FOLLOW_UP_INTERVAL_SEC)
+    await update_run_status(
+        run_id,
+        "waiting_for_followup",
+        state=state_obj,
+        followup_due_at=due,
+        follow_up_in_progress=False,
+    )
+    await insert_run_event(
+        run_id,
+        "followup_scheduled",
+        (
+            f"A follow-up is scheduled for {due.isoformat()} (attempt 1 of up to {FOLLOW_UP_LIMIT}, "
+            f"interval {FOLLOW_UP_INTERVAL_SEC} seconds)."
+        ),
+        {
+            "next_followup_at": due.isoformat(),
+            "follow_up_count": 0,
+            "followup_attempt_number": 1,
+            "message_id": message_id,
+            "thread_id": thread_id,
+        },
+    )
+    return None
+
+
+async def _persist_after_followup_pod(
+    run_id: uuid.UUID, fc_in: dict, final_state: dict
+) -> str | None:
+    resolved = _coerce_bool(final_state.get("resolved"))
+    attempt_num = int(fc_in.get("followup_attempt_number") or 1)
+    prev_count = int(fc_in.get("follow_up_count") or 0)
+
+    if resolved:
+        await insert_run_event(
+            run_id,
+            "ticket_resolved",
+            (
+                f"The Jira ticket was found in a resolved state during follow-up attempt {attempt_num}. "
+                f"This run is being closed as completed."
+            ),
+            {"follow_up_number": attempt_num, "run_id": str(run_id)},
+        )
+        await clear_followup_columns(run_id)
+        await update_run_status(
+            run_id,
+            "completed",
+            result={"text": "Ticket resolved on follow-up.", "resolved": True},
+            follow_up_in_progress=False,
+        )
+        return "completed"
+
+    reply_result = final_state.get("reply_result")
+    if not _reply_succeeded(reply_result):
+        await update_run_status(
+            run_id,
+            "failed",
+            error_message="Follow-up reply did not send successfully.",
+            follow_up_in_progress=False,
+        )
+        return None
+
+    rr = _tool_data_blob(reply_result)
+    new_count = prev_count + 1
+    next_attempt = new_count + 1
+    state_obj = dict(fc_in)
+    state_obj["follow_up_count"] = new_count
+    state_obj["followup_attempt_number"] = next_attempt
+    state_obj["last_email_body"] = (final_state.get("followup_draft") or {}).get("body") if isinstance(
+        final_state.get("followup_draft"), dict
+    ) else None
+    # Next reply must anchor to the latest outbound message in the thread.
+    if rr.get("message_id"):
+        state_obj["message_id"] = str(rr["message_id"]).strip()
+    if rr.get("thread_id"):
+        state_obj["thread_id"] = str(rr["thread_id"]).strip()
+
+    mid = state_obj.get("message_id") or fc_in.get("message_id")
+    tid = state_obj.get("thread_id") or fc_in.get("thread_id")
+    await insert_run_event(
+        run_id,
+        "followup_sent",
+        (
+            f"Follow-up {attempt_num} was sent in the existing email thread "
+            f"(message id {mid}, thread id {tid})."
+        ),
+        {
+            "follow_up_number": attempt_num,
+            "message_id": mid,
+            "thread_id": tid,
+        },
+    )
+
+    if new_count >= FOLLOW_UP_LIMIT:
+        await insert_run_event(
+            run_id,
+            "followup_exhausted",
+            (
+                f"The maximum of {FOLLOW_UP_LIMIT} follow-up emails has been reached and the ticket "
+                f"was still not resolved. This run is marked exhausted."
+            ),
+            {"follow_up_count": new_count, "follow_up_limit": FOLLOW_UP_LIMIT},
+        )
+        await clear_followup_columns(run_id)
+        await update_run_status(
+            run_id,
+            "exhausted",
+            result={"text": "Follow-up limit reached; ticket still open.", "follow_up_count": new_count},
+            follow_up_in_progress=False,
+        )
+        return "exhausted"
+
+    due = followup_due_after_seconds(FOLLOW_UP_INTERVAL_SEC)
+    await update_run_status(
+        run_id,
+        "waiting_for_followup",
+        state=state_obj,
+        followup_due_at=due,
+        follow_up_in_progress=False,
+    )
+    await insert_run_event(
+        run_id,
+        "followup_scheduled",
+        (
+            f"The next follow-up is scheduled for {due.isoformat()} "
+            f"(attempt {next_attempt} of up to {FOLLOW_UP_LIMIT})."
+        ),
+        {
+            "next_followup_at": due.isoformat(),
+            "follow_up_count": new_count,
+            "followup_attempt_number": next_attempt,
+            "message_id": state_obj.get("message_id"),
+            "thread_id": state_obj.get("thread_id"),
+        },
+    )
+    return None

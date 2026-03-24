@@ -15,10 +15,13 @@ def send_email(to: str, subject: str, body: str) -> dict:
     to_addr = (to or "").strip()
 
     if not api_key or not inbox_id:
+        mid = f"AGENTMAIL-MOCK-MSG-{now_iso()}-{hash(to_addr) % 100000}"
+        tid = f"AGENTMAIL-MOCK-THR-{hash(to_addr + 'thread') % 100000}"
         data = {
             "sent": True,
             "mock": True,
-            "message_id": f"AGENTMAIL-MOCK-{now_iso()}-{hash(to_addr) % 100000}",
+            "message_id": mid,
+            "thread_id": tid,
             "to": to_addr,
             "subject": subject,
             "system": "AgentMail (mock)",
@@ -37,11 +40,14 @@ def send_email(to: str, subject: str, body: str) -> dict:
             text=body or "",
             html=safe_html,
         )
-        msg_id = getattr(result, "id", None) or getattr(result, "message_id", None) or str(result)
+        # SendMessageResponse: message_id, thread_id (see agentmail.messages.types.send_message_response)
+        msg_id = str(getattr(result, "message_id", "") or "")
+        thr_id = str(getattr(result, "thread_id", "") or "")
         data = {
             "sent": True,
             "mock": False,
-            "message_id": str(msg_id),
+            "message_id": msg_id,
+            "thread_id": thr_id,
             "to": to_addr,
             "system": "AgentMail",
         }

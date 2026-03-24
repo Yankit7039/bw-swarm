@@ -7,6 +7,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from runtime.claim_reconciler import claim_reconciler
+from runtime.followup_poller import followup_poller
 from runtime.db import (
     create_run,
     get_run,
@@ -36,6 +37,7 @@ async def startup():
     await init_db()
     await run_migrations()
     asyncio.create_task(claim_reconciler())
+    asyncio.create_task(followup_poller())
 
 
 @app.post("/runs")

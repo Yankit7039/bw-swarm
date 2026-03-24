@@ -1,6 +1,7 @@
 """Template-agnostic sandbox trigger: SandboxClaim + POST /run with run_id + payload."""
 
 import asyncio
+import logging
 import os
 import uuid
 
@@ -18,6 +19,19 @@ except ImportError:
 
 SANDBOX_NAMESPACE = os.environ.get("SANDBOX_NAMESPACE", "default")
 ENTRYPOINT_PORT = int(os.environ.get("ENTRYPOINT_PORT", "8888"))
+LOG = logging.getLogger(__name__)
+
+
+def _sandbox_attempt_from_payload(payload: dict) -> int:
+    """0 = initial POST /runs; follow-up pods use followup_context.followup_attempt_number."""
+    fc = payload.get("followup_context") if isinstance(payload, dict) else None
+    if not isinstance(fc, dict):
+        return 0
+    try:
+        n = int(fc.get("followup_attempt_number") or 0)
+    except (TypeError, ValueError):
+        n = 0
+    return max(0, n)
 
 
 def _get_pod_hostname_for_claim_sync(claim_name: str, namespace: str) -> str | None:
@@ -69,7 +83,6 @@ def _delete_sandbox_claim(claim_name: str, namespace: str) -> bool:
         except config.ConfigException:
             return False
 
-    import logging
     custom_api = client.CustomObjectsApi()
     group, version = "extensions.agents.x-k8s.io", "v1alpha1"
     plural = "sandboxclaims"
@@ -82,7 +95,7 @@ def _delete_sandbox_claim(claim_name: str, namespace: str) -> bool:
     except ApiException as e:
         if e.status == 404:
             return True
-        logging.error(f"SandboxClaim delete ApiException: status={e.status} reason={e.reason} body={e.body}")
+        LOG.error("SandboxClaim delete ApiException: status=%s reason=%s body=%s", e.status, e.reason, e.body)
         return False
 
 
@@ -105,8 +118,7 @@ def _create_sandbox_claim(claim_name: str, warm_pool_ref: str, namespace: str) -
         "metadata": {"name": claim_name, "namespace": namespace},
         "spec": {"sandboxTemplateRef": {"name": warm_pool_ref}},
     }
-    import logging
-    logging.info(f"Creating SandboxClaim: name={claim_name} group=extensions.agents.x-k8s.io")
+    LOG.info("Creating SandboxClaim: name=%s group=extensions.agents.x-k8s.io", claim_name)
     try:
         custom_api.create_namespaced_custom_object(
             group="extensions.agents.x-k8s.io", version="v1alpha1", namespace=namespace,
@@ -114,14 +126,14 @@ def _create_sandbox_claim(claim_name: str, warm_pool_ref: str, namespace: str) -
         )
         return True
     except ApiException as e:
-        logging.error(f"SandboxClaim ApiException: status={e.status} reason={e.reason} body={e.body}")
+        LOG.error("SandboxClaim ApiException: status=%s reason=%s body=%s", e.status, e.reason, e.body)
         return False
 
 
-async def trigger_run(run_id: uuid.UUID, template_id: str, payload: dict) -> None:
+async def trigger_sandbox_post_run(run_id: uuid.UUID, template_id: str, payload: dict) -> None:
     """
     Resolve template → warm pool, create SandboxClaim, wait for pod,
-    POST /run with { run_id, payload }. Fire-and-forget; pod writes result to Postgres.
+    POST /run with { run_id, payload }. On failure, sets run to failed.
     """
     from runtime.db import get_template, update_run_status
 
@@ -135,13 +147,16 @@ async def trigger_run(run_id: uuid.UUID, template_id: str, payload: dict) -> Non
         await update_run_status(run_id, "failed", error_message="Template has no warm_pool_ref")
         return
 
-    claim_name = f"run-{run_id.hex[:12]}"
+    attempt = _sandbox_attempt_from_payload(payload)
+    claim_name = f"run-{run_id.hex[:12]}-a{attempt}"
     namespace = SANDBOX_NAMESPACE
     created = _create_sandbox_claim(claim_name, warm_pool_ref, namespace)
 
     if not created:
-        await update_run_status(run_id, "failed", sandbox_claim_name=claim_name,
-            error_message="Failed to create SandboxClaim (no K8s or claim failed)")
+        await update_run_status(
+            run_id, "failed", sandbox_claim_name=claim_name,
+            error_message="Failed to create SandboxClaim (no K8s or claim failed)",
+        )
         return
 
     hostname = await asyncio.get_event_loop().run_in_executor(
@@ -149,8 +164,10 @@ async def trigger_run(run_id: uuid.UUID, template_id: str, payload: dict) -> Non
     )
 
     if not hostname:
-        await update_run_status(run_id, "failed", sandbox_claim_name=claim_name,
-            error_message="SandboxClaim timed out waiting for pod")
+        await update_run_status(
+            run_id, "failed", sandbox_claim_name=claim_name,
+            error_message="SandboxClaim timed out waiting for pod",
+        )
         return
 
     await update_run_status(run_id, "running", assigned_pod=hostname, sandbox_claim_name=claim_name)
@@ -169,3 +186,8 @@ async def trigger_run(run_id: uuid.UUID, template_id: str, payload: dict) -> Non
         except Exception as e:
             msg = str(e).strip() or f"{type(e).__name__}"
             await update_run_status(run_id, "failed", error_message=f"POST /run failed: {msg}")
+
+
+async def trigger_run(run_id: uuid.UUID, template_id: str, payload: dict) -> None:
+    """Enqueue a new run: SandboxClaim + POST /run (same as trigger_sandbox_post_run)."""
+    await trigger_sandbox_post_run(run_id, template_id, payload)

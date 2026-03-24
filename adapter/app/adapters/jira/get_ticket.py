@@ -117,11 +117,14 @@ def get_ticket(order_id: str) -> dict:
     else:
         status_out = ""
 
+    status_lower = status_out.strip().lower() if isinstance(status_out, str) else ""
+
     raw_desc = fields.get("description")
     payload = {
         "key": data.get("key") or issue_key,
         "title": fields.get("summary"),
         "status": status_out,
+        "status_lower": status_lower,
         "description": raw_desc,
         "description_plain": _description_plain(raw_desc),
     }

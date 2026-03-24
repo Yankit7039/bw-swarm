@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import DateTime, JSON, text
+from sqlalchemy import Boolean, DateTime, JSON, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -64,6 +64,11 @@ class Run(Base):
     claim_deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    state: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    followup_due_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    follow_up_in_progress: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class RunEvent(Base):
@@ -139,6 +144,9 @@ async def get_run(run_id: UUID) -> dict | None:
             "assigned_pod": row.assigned_pod,
             "sandbox_claim_name": row.sandbox_claim_name,
             "claim_deleted_at": row.claim_deleted_at.isoformat() if row.claim_deleted_at else None,
+            "state": row.state,
+            "followup_due_at": row.followup_due_at.isoformat() if row.followup_due_at else None,
+            "follow_up_in_progress": row.follow_up_in_progress,
         }
 
 
@@ -166,7 +174,10 @@ async def update_run_status(
             row.assigned_pod = assigned_pod
         if sandbox_claim_name is not None:
             row.sandbox_claim_name = sandbox_claim_name
-        if status in ("completed", "failed"):
+            row.claim_deleted_at = None
+        if status == "failed":
+            row.follow_up_in_progress = False
+        if status in ("completed", "failed", "exhausted"):
             row.completed_at = now
         await session.commit()
 
@@ -177,12 +188,46 @@ async def get_runs_with_uncleaned_claims() -> list[tuple[UUID, str]]:
         result = await session.execute(
             text(
                 "SELECT run_id, sandbox_claim_name FROM runs "
-                "WHERE status IN ('completed', 'failed') "
-                "AND sandbox_claim_name IS NOT NULL AND claim_deleted_at IS NULL"
+                "WHERE status IN ('completed', 'failed', 'waiting_for_followup', 'exhausted') "
+                "AND sandbox_claim_name IS NOT NULL AND claim_deleted_at IS NULL "
+                "AND NOT (status = 'running' AND follow_up_in_progress = true)"
             ),
         )
         rows = result.fetchall()
         return [(r[0], r[1]) for r in rows]
+
+
+async def fetch_due_followup_runs() -> list[tuple[UUID, str, dict, dict | None]]:
+    """Runs ready for follow-up: (run_id, template_id, payload, state). Single query."""
+    async with async_session_factory() as session:
+        result = await session.execute(
+            text(
+                "SELECT run_id, template_id, payload, state FROM runs "
+                "WHERE status = 'waiting_for_followup' "
+                "AND followup_due_at IS NOT NULL AND followup_due_at <= NOW() "
+                "AND follow_up_in_progress = false"
+            ),
+        )
+        rows = result.fetchall()
+        return [(r[0], r[1], r[2] or {}, r[3]) for r in rows]
+
+
+async def claim_followup_run(run_id: UUID) -> bool:
+    """Atomically move run from waiting_for_followup to running with follow_up_in_progress. Returns True if claimed."""
+    now = datetime.now(timezone.utc)
+    async with async_session_factory() as session:
+        result = await session.execute(
+            text(
+                "UPDATE runs SET status = 'running', follow_up_in_progress = true, updated_at = :now "
+                "WHERE run_id = :run_id AND status = 'waiting_for_followup' "
+                "AND followup_due_at IS NOT NULL AND followup_due_at <= :now "
+                "AND follow_up_in_progress = false"
+            ),
+            {"run_id": str(run_id), "now": now},
+        )
+        await session.commit()
+        rc = result.rowcount
+        return rc is not None and rc > 0
 
 
 async def mark_claim_deleted(run_id: UUID) -> None:

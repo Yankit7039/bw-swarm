@@ -15,6 +15,7 @@ stages:
 
   - name: classify
     type: deterministic
+    skip_if: "is_followup"
     steps:
       - name: fetch_ticket
         type: mcp_call
@@ -51,6 +52,7 @@ stages:
 
   - name: lookup
     type: deterministic
+    skip_if: "is_followup"
     steps:
       - name: lookup_contact
         type: mcp_call
@@ -61,6 +63,7 @@ stages:
 
   - name: notify
     type: hybrid
+    skip_if: "is_followup"
     steps:
       - name: notify
         type: llm_agent
@@ -106,3 +109,61 @@ stages:
           subject: "{{ email_draft['subject'] }}"
           body: "{{ email_draft['body'] }}"
         output_key: email_result
+
+  - name: followup
+    type: deterministic
+    skip_if: "is_followup == False"
+    steps:
+      - name: check_jira_status
+        type: mcp_call
+        tool: jira__get_ticket
+        input:
+          order_id: "{{ followup_context['order_id'] }}"
+        output_key: current_ticket
+      - name: evaluate_status
+        type: condition
+        branches:
+          - if: "current_ticket['status_lower'] == 'resolved'"
+            set:
+              resolved: true
+          - else: true
+            set:
+              resolved: false
+      - name: draft_followup_email
+        type: llm_agent
+        skip_if: "resolved"
+        description: Reply body only for follow-up in existing thread
+        instruction: |
+          You write a short follow-up reply body for an internal escalation email thread. Use only the facts below. Do not invent ticket IDs, systems, or customer details.
+
+          Follow-up number (1 = polite reminder, 2 = firm and urgent, 3 = critical; 3 is the final follow-up): {{ followup_context['followup_attempt_number'] }}
+
+          Order ID: {{ followup_context['order_id'] }}
+
+          Tone:
+          - If follow-up number is 1: polite reminder that you are still waiting on action.
+          - If 2: firm and urgent.
+          - If 3: critical; state clearly this is the final follow-up.
+
+          Reference the order id in the body. Do not add new claims or next steps not implied by the context.
+
+          Respond ONLY as JSON, no markdown, no extra text:
+          {"body": "..."}
+        output_key: followup_draft
+        fallback_state:
+          body: |
+            Follow-up regarding order {{ followup_context['order_id'] }}: we are still waiting on progress. Please update the ticket or advise.
+
+            Thank you,
+            Swarm Agent
+      - name: send_followup_reply
+        type: mcp_call
+        skip_if: "resolved"
+        tool: agentmail__send_followup
+        input:
+          to: "{{ followup_context['contact_email'] }}"
+          subject: "{{ followup_context['last_email_subject'] }}"
+          body: "{{ followup_draft['body'] }}"
+          thread_id: "{{ followup_context['thread_id'] }}"
+          message_id: "{{ followup_context['message_id'] }}"
+        output_key: reply_result

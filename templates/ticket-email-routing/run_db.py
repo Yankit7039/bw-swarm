@@ -1,13 +1,13 @@
 """Thin client for template: write run status and run_events to shared Postgres."""
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import text, bindparam
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.types import Text
+from sqlalchemy.types import Boolean, Text
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql+asyncpg://swarm:swarm@localhost:5432/swarm"
@@ -23,21 +23,26 @@ async def update_run_status(
     *,
     result: dict | None = None,
     error_message: str | None = None,
+    state: dict | None = None,
+    followup_due_at: datetime | None = None,
+    follow_up_in_progress: bool | None = None,
 ) -> None:
-    """Update runs table: status, optional result/error_message."""
+    """Update runs table: status, optional result/error_message, follow-up columns."""
     now = datetime.now(timezone.utc)
     async with async_session_factory() as session:
         stmt = text("""
             UPDATE runs SET status = :status, updated_at = :now,
-                completed_at = CASE WHEN :status IN ('completed', 'failed') THEN :now ELSE completed_at END
+                completed_at = CASE WHEN :status IN ('completed', 'failed', 'exhausted') THEN :now ELSE completed_at END
             WHERE run_id = :run_id
         """).bindparams(bindparam("status", type_=Text))
         await session.execute(stmt, {"run_id": str(run_id), "status": status, "now": now})
         if result is not None:
-            stmt = text("UPDATE runs SET result = :result WHERE run_id = :run_id").bindparams(
-                bindparam("result", type_=JSONB)
+            await session.execute(
+                text("UPDATE runs SET result = :result WHERE run_id = :run_id").bindparams(
+                    bindparam("result", type_=JSONB)
+                ),
+                {"run_id": str(run_id), "result": result},
             )
-            await session.execute(stmt, {"run_id": str(run_id), "result": result})
         if error_message is not None:
             await session.execute(
                 text("UPDATE runs SET error_message = :error_message WHERE run_id = :run_id"),
@@ -48,6 +53,38 @@ async def update_run_status(
                 text("UPDATE runs SET error_message = NULL WHERE run_id = :run_id"),
                 {"run_id": str(run_id)},
             )
+        if state is not None:
+            await session.execute(
+                text("UPDATE runs SET state = :state WHERE run_id = :run_id").bindparams(
+                    bindparam("state", type_=JSONB)
+                ),
+                {"run_id": str(run_id), "state": state},
+            )
+        if followup_due_at is not None:
+            await session.execute(
+                text("UPDATE runs SET followup_due_at = :fd WHERE run_id = :run_id"),
+                {"run_id": str(run_id), "fd": followup_due_at},
+            )
+        if follow_up_in_progress is not None:
+            await session.execute(
+                text("UPDATE runs SET follow_up_in_progress = :fup WHERE run_id = :run_id").bindparams(
+                    bindparam("fup", type_=Boolean)
+                ),
+                {"run_id": str(run_id), "fup": follow_up_in_progress},
+            )
+        await session.commit()
+
+
+async def clear_followup_columns(run_id: UUID) -> None:
+    """Null state and followup_due_at (e.g. on terminal completion)."""
+    async with async_session_factory() as session:
+        await session.execute(
+            text(
+                "UPDATE runs SET state = NULL, followup_due_at = NULL, follow_up_in_progress = false "
+                "WHERE run_id = :run_id"
+            ),
+            {"run_id": str(run_id)},
+        )
         await session.commit()
 
 
@@ -73,3 +110,7 @@ async def insert_run_event(
             },
         )
         await session.commit()
+
+
+def followup_due_after_seconds(seconds: int) -> datetime:
+    return datetime.now(timezone.utc) + timedelta(seconds=seconds)
