@@ -22,7 +22,7 @@ interface UseExecutionMeshOptions {
 function generateOrderIds(prefix: string, start: number, count: number): string[] {
   return Array.from({ length: count }, (_, i) => {
     const num = start + i
-    return `${prefix}${num.toString().padStart(3, '0')}`
+    return `${prefix}${String(num)}`
   })
 }
 

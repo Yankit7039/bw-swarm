@@ -46,7 +46,7 @@ function buildExpectedOrderIds(params: BulkVizParams): string[] {
   const ids: string[] = []
   for (let i = 0; i < params.count; i++) {
     const num = params.start + i
-    ids.push(`${params.prefix}${num.toString().padStart(3, '0')}`)
+    ids.push(`${params.prefix}${String(num)}`)
   }
   return ids
 }
