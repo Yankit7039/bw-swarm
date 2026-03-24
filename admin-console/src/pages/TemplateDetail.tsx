@@ -18,6 +18,9 @@ import {
   // Search,
   // MessageSquare,
   Edit3,
+  Webhook,
+  Copy,
+  X,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { useTemplates } from '../hooks/useTemplates'
@@ -294,6 +297,9 @@ export function TemplateDetail() {
   const [isValidating, setIsValidating] = useState(false)
   const [isDeploying, setIsDeploying] = useState(false)
   const [validationStatus, setValidationStatus] = useState<'idle' | 'valid' | 'invalid'>('idle')
+  const [showWebhookModal, setShowWebhookModal] = useState(false)
+  const [copiedUrl, setCopiedUrl] = useState(false)
+  const [copiedPayload, setCopiedPayload] = useState(false)
 
   const template = templatesData?.data?.find((t) => t.id === id)
 
@@ -302,6 +308,90 @@ export function TemplateDetail() {
     [template?.workflow_yaml, id, template?.name]
   )
   const highlightedYAML = highlightYAML(yamlContent)
+
+  // Webhook configuration
+  const webhookUrl = useMemo(() => {
+    if (!template) return ''
+    const baseUrl = window.location.origin.replace(':5173', ':30081').replace(':3000', ':8000')
+    return `${baseUrl}/webhooks/templates/${template.id}`
+  }, [template])
+
+  const samplePayload = useMemo(() => {
+    if (!template) return {}
+    const templateId = template.id.toLowerCase()
+    if (templateId.includes('esim')) {
+      return {
+        order_id: 'ESIM-12345'
+        // customer_email: 'customer@example.com',
+        // iccid: '8912345678901234567',
+        // activation_code: 'ABCD1234'
+      }
+    } else if (templateId.includes('port')) {
+      return {
+        order_id: 'PORT-67890'
+        // customer_email: 'customer@example.com',
+        // porting_number: '+1234567890',
+        // donor_carrier: 'Previous Carrier'
+      }
+    } else if (templateId.includes('stuck')) {
+      return {
+        order_id: 'ORD-54321'
+        // customer_email: 'customer@example.com',
+        // issue_type: 'billing_hold',
+        // priority: 'high'
+      }
+    }
+    return {
+      order_id: 'ORD-XXXXX'
+      // customer_email: 'customer@example.com',
+      // priority: 'medium'
+    }
+  }, [template])
+
+  // Batch payload - multiple orders
+  const batchPayload = useMemo(() => {
+    return {
+      orders: [
+        { order_id: 'ORDER-12345' },
+        { order_id: 'ORDER-12346' },
+        { order_id: 'ORDER-12347' }
+      ]
+    }
+  }, [])
+
+  const samplePayloadJson = useMemo(() => JSON.stringify(samplePayload, null, 2), [samplePayload])
+  const batchPayloadJson = useMemo(() => JSON.stringify(batchPayload, null, 2), [batchPayload])
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(webhookUrl)
+      setCopiedUrl(true)
+      setTimeout(() => setCopiedUrl(false), 2000)
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleCopyPayload = async () => {
+    try {
+      await navigator.clipboard.writeText(samplePayloadJson)
+      setCopiedPayload(true)
+      setTimeout(() => setCopiedPayload(false), 2000)
+    } catch {
+      // ignore
+    }
+  }
+
+  const [copiedBatch, setCopiedBatch] = useState(false)
+  const handleCopyBatch = async () => {
+    try {
+      await navigator.clipboard.writeText(batchPayloadJson)
+      setCopiedBatch(true)
+      setTimeout(() => setCopiedBatch(false), 2000)
+    } catch {
+      // ignore
+    }
+  }
 
   const handleValidate = () => {
     setIsValidating(true)
@@ -381,6 +471,13 @@ export function TemplateDetail() {
                 Valid YAML
               </div>
             )}
+            <button
+              onClick={() => setShowWebhookModal(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-lg transition"
+            >
+              <Webhook className="w-4 h-4" />
+              Get Webhook
+            </button>
             <button
               onClick={() => navigate(`/templates/new?edit=${id}`)}
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-lg transition"
@@ -484,6 +581,136 @@ export function TemplateDetail() {
           </aside> */}
         </div>
       </div>
+
+      {/* Webhook Modal */}
+      {showWebhookModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                  <Webhook className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Webhook Configuration</h2>
+                  <p className="text-sm text-slate-500">Trigger runs via external integrations</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowWebhookModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {/* Webhook URL */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Webhook URL
+                </label>
+                <div className="flex gap-2">
+                  <code className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-mono text-slate-700 break-all">
+                    {webhookUrl}
+                  </code>
+                  <button
+                    onClick={handleCopyUrl}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition text-sm font-semibold whitespace-nowrap"
+                  >
+                    <Copy className="w-4 h-4" />
+                    {copiedUrl ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              {/* HTTP Method */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  HTTP Method
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-md text-sm font-bold">
+                    POST
+                  </span>
+                  <span className="text-sm text-slate-500">Content-Type: application/json</span>
+                </div>
+              </div>
+
+              {/* Sample Payload - Single */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Single Run Payload
+                </label>
+                <div className="relative">
+                  <pre className="bg-slate-900 rounded-xl p-4 overflow-x-auto">
+                    <code className="text-sm font-mono text-emerald-400">
+                      {samplePayloadJson}
+                    </code>
+                  </pre>
+                  <button
+                    onClick={handleCopyPayload}
+                    className="absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition text-xs font-semibold"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    {copiedPayload ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Use this to trigger a single run with one order
+                </p>
+              </div>
+
+              {/* Sample Payload - Batch */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Batch Run Payload (Multiple Orders)
+                </label>
+                <div className="relative">
+                  <pre className="bg-slate-800 rounded-xl p-4 overflow-x-auto border border-indigo-500/30">
+                    <code className="text-sm font-mono text-indigo-400">
+                      {batchPayloadJson}
+                    </code>
+                  </pre>
+                  <button
+                    onClick={handleCopyBatch}
+                    className="absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition text-xs font-semibold"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    {copiedBatch ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Use this to trigger multiple runs in one request. Each item in the orders array will create a separate run.
+                </p>
+              </div>
+
+              {/* Usage Info */}
+              <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                <h4 className="text-sm font-bold text-blue-900 mb-2">How to use</h4>
+                <ul className="text-sm text-blue-800 space-y-1.5 list-disc list-inside">
+                  <li>Copy the Webhook URL above</li>
+                  <li>Use it in your external system (Postman, Zapier, etc.)</li>
+                  <li>Send single payload for one run, or batch payload for multiple runs</li>
+                  <li>All runs will be triggered automatically</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
+              <button
+                onClick={() => setShowWebhookModal(false)}
+                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

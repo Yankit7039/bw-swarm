@@ -15,7 +15,8 @@ RUN pip install --no-cache-dir \
     fastapi \
     "uvicorn[standard]" \
     "sqlalchemy[asyncio]" \
-    asyncpg
+    asyncpg \
+    httpx
 
 COPY admin-api/app /app/app
 
