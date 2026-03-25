@@ -23,6 +23,12 @@ JIRA_EMAIL=you@example.com JIRA_API_TOKEN=your-atlassian-api-token JIRA_BASE=htt
 OPENROUTER_API_KEY=sk-or-v1-... ./scripts/quickstart.sh
 ```
 
+Optional — `JIRA_WEBHOOK_SECRET` for the Runtime `POST /webhooks/jira` endpoint (Bearer token; stored as `jira-webhook-secret` in `adk-secrets`, same as Terraform on AWS). Omit or leave empty if you are not testing Jira webhooks locally.
+
+```bash
+JIRA_WEBHOOK_SECRET=your-webhook-bearer-token OPENROUTER_API_KEY=sk-or-v1-... ./scripts/quickstart.sh
+```
+
 Or pass OpenRouter key as the first argument:
 
 ```bash
@@ -84,7 +90,7 @@ kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/downl
 
 Replace `sk-or-v1-...` with your OpenRouter API key. Optionally add AgentMail credentials (same keys as in `adk-secrets` for AWS); omit them or use empty strings to use mock email sends from the adapter.
 
-The adapter deployment expects **Jira** keys for the ticket-email-routing workflow (`jira-email`, `jira-api-token`, `jira-base`). Use empty strings for Jira if you are not testing that template yet.
+The adapter deployment expects **Jira** keys for the ticket-email-routing workflow (`jira-email`, `jira-api-token`, `jira-base`). Use empty strings for Jira if you are not testing that template yet. Add `jira-webhook-secret` if you use the Runtime Jira webhook (`POST /webhooks/jira`).
 
 ```bash
 kubectl create secret generic adk-secrets \
@@ -94,7 +100,8 @@ kubectl create secret generic adk-secrets \
   --from-literal=agentmail-inbox-id='' \
   --from-literal=jira-email='' \
   --from-literal=jira-api-token='' \
-  --from-literal=jira-base='https://swarm-bw.atlassian.net'
+  --from-literal=jira-base='https://swarm-bw.atlassian.net' \
+  --from-literal=jira-webhook-secret=''
 ```
 
 ### 6. Apply manifests (Postgres in-cluster)

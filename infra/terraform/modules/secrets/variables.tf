@@ -62,3 +62,9 @@ variable "jira_base" {
   default     = "https://swarm-bw.atlassian.net"
 }
 
+variable "jira_webhook_secret" {
+  description = "Bearer token for POST /webhooks/jira (runtime Jira webhook)."
+  type        = string
+  sensitive   = true
+}
+

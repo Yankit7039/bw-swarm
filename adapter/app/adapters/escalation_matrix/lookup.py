@@ -8,11 +8,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 _MATRIX: dict[str, dict[str, str]] = {
     "billing": {
         "name": "Billing Operations Lead",
-        "email": "deepam.goyal@boringworkflows.ai",
+        "email": "ashish@boringworkflows.ai",
     },
     "porting": {
         "name": "Porting & LNP Lead",
-        "email": "deepamgoyal77@gmail.com",
+        "email": "ashishdogradir@gmail.com",
     },
     "network_provisioning": {
         "name": "Network Provisioning Manager",
@@ -24,7 +24,7 @@ _MATRIX: dict[str, dict[str, str]] = {
     },
     "_default": {
         "name": "Service Desk",
-        "email": "deepamgoyal77@gmail.com",
+        "email": "ashish@boringworkflows.ai",
     },
 }
 

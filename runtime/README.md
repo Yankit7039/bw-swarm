@@ -3,6 +3,7 @@
 Template-agnostic orchestrator for agent runs. Postgres only (no Redis).
 
 - **POST /runs** — Body: `{ "template_id": string, "payload": object }`. Creates a run, enqueues sandbox trigger (SandboxClaim + POST /run to pod).
+- **POST /webhooks/jira** — Jira Cloud admin webhooks: authenticate with `X-Hub-Signature` (HMAC-SHA256 of the raw body; secret in `JIRA_WEBHOOK_SECRET`). Optional `Authorization: Bearer <same secret>` for manual tests. Query `order_id` and body `webhookEvent: jira:issue_created` trigger ticket-email-routing.
 - **GET /runs/{run_id}** — Run status, result, error_message, timestamps.
 - **GET /runs/{run_id}/events** — Live step-by-step events.
 

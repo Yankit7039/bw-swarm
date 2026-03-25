@@ -52,6 +52,13 @@ variable "jira_base" {
   default     = "https://swarm-bw.atlassian.net"
 }
 
+variable "jira_webhook_secret" {
+  description = "Bearer token for Runtime Jira webhook; stored as jira-webhook-secret in Secrets Manager."
+  type        = string
+  sensitive   = true
+  default     = "REPLACE_ME"
+}
+
 variable "route53_zone_id" {
   description = "Route 53 hosted zone ID for singledigit.team."
   type        = string

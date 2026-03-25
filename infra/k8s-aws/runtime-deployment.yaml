@@ -28,6 +28,11 @@ spec:
                 secretKeyRef:
                   name: adk-secrets
                   key: database-url
+            - name: JIRA_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: jira-webhook-secret
           resources:
             requests:
               memory: "256Mi"

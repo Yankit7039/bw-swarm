@@ -8,9 +8,10 @@ locals {
     "openrouter-api-key" = var.openrouter_api_key
     "agentmail-api-key"  = var.agentmail_api_key
     "agentmail-inbox-id" = var.agentmail_inbox_id
-    "jira-email"         = var.jira_email
-    "jira-api-token"     = var.jira_api_token
-    "jira-base"          = var.jira_base
+    "jira-email"           = var.jira_email
+    "jira-api-token"       = var.jira_api_token
+    "jira-base"            = var.jira_base
+    "jira-webhook-secret"  = var.jira_webhook_secret
   })
 }
 
