@@ -114,3 +114,43 @@ async def insert_run_event(
 
 def followup_due_after_seconds(seconds: int) -> datetime:
     return datetime.now(timezone.utc) + timedelta(seconds=seconds)
+
+
+async def insert_communication_thread(
+    channel_thread_id: str, run_id: UUID, template_id: str
+) -> None:
+    """Register inbound routing for this channel thread (idempotent)."""
+    if not channel_thread_id or not str(channel_thread_id).strip():
+        return
+    async with async_session_factory() as session:
+        await session.execute(
+            text(
+                "INSERT INTO communication_threads (channel_thread_id, run_id, template_id, created_at) "
+                "VALUES (:tid, :run_id, :tpl, :now) "
+                "ON CONFLICT (channel_thread_id) DO NOTHING"
+            ),
+            {
+                "tid": str(channel_thread_id).strip(),
+                "run_id": str(run_id),
+                "tpl": template_id,
+                "now": datetime.now(timezone.utc),
+            },
+        )
+        await session.commit()
+
+
+async def mark_pending_processed_for_thread(channel_thread_id: str) -> int:
+    """Mark all unprocessed pending inbound rows for this thread; returns row count."""
+    if not channel_thread_id or not str(channel_thread_id).strip():
+        return 0
+    async with async_session_factory() as session:
+        result = await session.execute(
+            text(
+                "UPDATE pending_inbound_interactions SET processed = true "
+                "WHERE channel_thread_id = :tid AND processed = false"
+            ),
+            {"tid": str(channel_thread_id).strip()},
+        )
+        await session.commit()
+        rc = result.rowcount
+        return int(rc) if rc is not None else 0

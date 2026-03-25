@@ -11,6 +11,8 @@
 #   (defaults: empty email/token, JIRA_BASE=https://swarm-bw.atlassian.net — empty Jira creds mean Jira tools return errors until set)
 # Optional (Runtime POST /webhooks/jira — Bearer token; same key as adk-secrets jira-webhook-secret on AWS):
 #   JIRA_WEBHOOK_SECRET=... ./scripts/quickstart.sh
+# Optional (Runtime POST /webhooks/agentmail — HMAC secret; same key as adk-secrets agentmail-webhook-secret on AWS):
+#   AGENTMAIL_WEBHOOK_SECRET=... ./scripts/quickstart.sh
 set -e
 
 # Colors
@@ -48,6 +50,7 @@ JIRA_EMAIL="${JIRA_EMAIL:-}"
 JIRA_API_TOKEN="${JIRA_API_TOKEN:-}"
 JIRA_BASE="${JIRA_BASE:-https://swarm-bw.atlassian.net}"
 JIRA_WEBHOOK_SECRET="${JIRA_WEBHOOK_SECRET:-}"
+AGENTMAIL_WEBHOOK_SECRET="${AGENTMAIL_WEBHOOK_SECRET:-}"
 if [ -z "$OPENROUTER_API_KEY" ] || [ "$OPENROUTER_API_KEY" = "sk-or-v1-..." ]; then
   echo -e "${RED}OPENROUTER_API_KEY is not set.${NC}"
   echo -e "${YELLOW}Set it via env or first arg, for example:${NC}"
@@ -96,6 +99,7 @@ kubectl create secret generic adk-secrets \
   --from-literal=jira-api-token="$JIRA_API_TOKEN" \
   --from-literal=jira-base="$JIRA_BASE" \
   --from-literal=jira-webhook-secret="$JIRA_WEBHOOK_SECRET" \
+  --from-literal=agentmail-webhook-secret="$AGENTMAIL_WEBHOOK_SECRET" \
   >/dev/null 2>&1 || {
   echo -e "${YELLOW}Secret adk-secrets already exists, reusing it.${NC}"
 }

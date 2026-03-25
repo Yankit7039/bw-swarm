@@ -15,7 +15,7 @@ stages:
 
   - name: classify
     type: deterministic
-    skip_if: "is_followup"
+    skip_if: "is_followup or is_reply"
     steps:
       - name: fetch_ticket
         type: mcp_call
@@ -52,7 +52,7 @@ stages:
 
   - name: lookup
     type: deterministic
-    skip_if: "is_followup"
+    skip_if: "is_followup or is_reply"
     steps:
       - name: lookup_contact
         type: mcp_call
@@ -63,7 +63,7 @@ stages:
 
   - name: notify
     type: hybrid
-    skip_if: "is_followup"
+    skip_if: "is_followup or is_reply"
     steps:
       - name: notify
         type: llm_agent
@@ -112,7 +112,7 @@ stages:
 
   - name: followup
     type: deterministic
-    skip_if: "is_followup == False"
+    skip_if: "is_followup == False or is_reply"
     steps:
       - name: check_jira_status
         type: mcp_call
@@ -167,3 +167,42 @@ stages:
           thread_id: "{{ followup_context['thread_id'] }}"
           message_id: "{{ followup_context['message_id'] }}"
         output_key: reply_result
+
+  - name: engineer_reply
+    type: deterministic
+    skip_if: "is_reply == False"
+    steps:
+      - name: draft_engineer_reply
+        type: llm_agent
+        tool_filter:
+          - agentmail__send_followup
+        description: Draft a short reply to the engineer in the existing thread
+        instruction: |
+          You respond in an internal escalation email thread. The engineer sent a message; reply helpfully and briefly using only facts from Order ID, their message, and the context below. Do not invent ticket IDs, systems, or customer details.
+
+          Order ID: {{ order_id }}
+
+          Engineer's message:
+          {{ reply_context['body'] }}
+
+          Context (thread / escalation): order {{ followup_context['order_id'] }}, contact {{ followup_context['contact_email'] }}.
+
+          Respond ONLY as JSON, no markdown, no extra text:
+          {"body": "..."}
+        output_key: engineer_reply_draft
+        fallback_state:
+          body: |
+            Thanks for the update on order {{ order_id }}. We will proceed and follow up if anything else is needed.
+
+            Thank you,
+            Swarm Agent
+      - name: send_engineer_reply
+        type: mcp_call
+        tool: agentmail__send_followup
+        input:
+          to: "{{ followup_context['contact_email'] }}"
+          subject: "{{ followup_context['last_email_subject'] }}"
+          body: "{{ engineer_reply_draft['body'] }}"
+          thread_id: "{{ followup_context['thread_id'] }}"
+          message_id: "{{ followup_context['message_id'] }}"
+        output_key: engineer_reply_result

@@ -14,7 +14,9 @@ from google.genai import types
 from run_db import (
     clear_followup_columns,
     followup_due_after_seconds,
+    insert_communication_thread,
     insert_run_event,
+    mark_pending_processed_for_thread,
     update_run_status,
 )
 from ticket_email_routing.agent import build_root_agent
@@ -27,6 +29,7 @@ FOLLOW_UP_INTERVAL_SEC = 120
 
 APP_NAME = "ticket_email_routing"
 WORKFLOW_PATH = Path(__file__).resolve().parent / "ticket-email-routing.yaml"
+TEMPLATE_ID = "ticket-email-routing"
 
 
 def _llm_agent_tool_allowlists(workflow_path: Path) -> dict[str, frozenset[str]]:
@@ -229,8 +232,33 @@ _run_session_service = InMemorySessionService()
 
 async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
     fc_in = payload.get("followup_context") or {}
-    is_followup = bool(fc_in)
-    order_id = (payload.get("order_id") or fc_in.get("order_id") or "").strip()
+    rc_in = payload.get("reply_context") or {}
+    ts_in = payload.get("thread_state") or {}
+    if isinstance(fc_in, dict) and isinstance(rc_in, dict) and fc_in and rc_in:
+        await insert_run_event(
+            run_id,
+            "workflow_error",
+            (
+                "The workflow received both follow-up context and reply context in the same request, "
+                "which is invalid. This run is being marked as failed."
+            ),
+            None,
+        )
+        await update_run_status(
+            run_id,
+            "failed",
+            error_message="Invalid payload: both followup_context and reply_context were set.",
+            follow_up_in_progress=False,
+        )
+        return
+
+    is_reply = bool(rc_in)
+    is_followup = bool(fc_in) and not is_reply
+    fc_for_session = (ts_in if isinstance(ts_in, dict) else {}) if is_reply else (fc_in if isinstance(fc_in, dict) else {})
+    order_id = (
+        (payload.get("order_id") or fc_for_session.get("order_id") or fc_in.get("order_id") or "")
+        .strip()
+    )
     if not order_id:
         await update_run_status(run_id, "failed", error_message="payload.order_id required")
         return
@@ -238,23 +266,35 @@ async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
     await update_run_status(run_id, "running", follow_up_in_progress=False)
     session_id = uuid.uuid4().hex
 
-    user_text = (
-        f"Follow up on order {order_id}: check Jira, reply in the existing AgentMail thread if still open."
-        if is_followup
-        else f"Route ticket email escalation. Order ID: {order_id}."
-    )
+    if is_reply:
+        user_text = (
+            f"Order {order_id}: an engineer replied in the escalation email thread. "
+            f"Draft and send a concise, helpful reply in the same AgentMail thread."
+        )
+    elif is_followup:
+        user_text = (
+            f"Follow up on order {order_id}: check Jira, reply in the existing AgentMail thread if still open."
+        )
+    else:
+        user_text = f"Route ticket email escalation. Order ID: {order_id}."
 
     try:
+        session_state: dict = {
+            "order_id": order_id,
+            "run_id": str(run_id),
+            "is_followup": is_followup,
+            "is_reply": is_reply,
+        }
+        if is_followup or is_reply:
+            session_state["followup_context"] = fc_for_session
+        if is_reply:
+            session_state["reply_context"] = rc_in
+
         session = await _run_session_service.create_session(
             app_name=APP_NAME,
             user_id="api",
             session_id=session_id,
-            state={
-                "order_id": order_id,
-                "run_id": str(run_id),
-                "is_followup": is_followup,
-                **({"followup_context": fc_in} if is_followup else {}),
-            },
+            state=session_state,
         )
 
         await insert_run_event(run_id, "workflow_started", "Workflow started", None)
@@ -333,6 +373,8 @@ async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
             "resolved",
             "followup_draft",
             "reply_result",
+            "engineer_reply_draft",
+            "engineer_reply_result",
         )
         final_state: dict = {}
         for key in keys:
@@ -345,7 +387,9 @@ async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
             final_response_text = "Workflow completed."
 
         try:
-            if is_followup:
+            if is_reply:
+                terminal = await _persist_after_reply_pod(run_id, fc_for_session, rc_in, final_state)
+            elif is_followup:
                 terminal = await _persist_after_followup_pod(run_id, fc_in, final_state)
             else:
                 terminal = await _persist_after_initial_pod(run_id, order_id, final_state)
@@ -438,6 +482,80 @@ async def _persist_after_initial_pod(
             "followup_attempt_number": 1,
             "message_id": message_id,
             "thread_id": thread_id,
+        },
+    )
+    if thread_id:
+        await insert_communication_thread(str(thread_id), run_id, TEMPLATE_ID)
+    return None
+
+
+async def _persist_after_reply_pod(
+    run_id: uuid.UUID, thread_state: dict, reply_ctx: dict, final_state: dict
+) -> str | None:
+    send_res = final_state.get("engineer_reply_result")
+    if not _reply_succeeded(send_res):
+        await update_run_status(
+            run_id,
+            "failed",
+            error_message="Reply to the engineer did not send successfully.",
+            follow_up_in_progress=False,
+        )
+        return None
+
+    rr = _tool_data_blob(send_res)
+    tid = str(
+        thread_state.get("thread_id") or (reply_ctx.get("thread_id") if isinstance(reply_ctx, dict) else "") or ""
+    ).strip()
+    if not tid:
+        await update_run_status(
+            run_id,
+            "failed",
+            error_message="Missing thread_id after engineer reply send.",
+            follow_up_in_progress=False,
+        )
+        return None
+
+    n_pending = await mark_pending_processed_for_thread(tid)
+    if n_pending > 0:
+        await insert_run_event(
+            run_id,
+            "pending_inbound_drained",
+            (
+                f"{n_pending} queued inbound message(s) were marked as processed while the reply "
+                f"to the engineer was handled."
+            ),
+            {"count": n_pending, "thread_id": tid},
+        )
+
+    state_obj = dict(thread_state) if isinstance(thread_state, dict) else {}
+    if rr.get("message_id"):
+        state_obj["message_id"] = str(rr["message_id"]).strip()
+    if rr.get("thread_id"):
+        state_obj["thread_id"] = str(rr["thread_id"]).strip()
+
+    attempt_num = int(state_obj.get("followup_attempt_number") or 1)
+
+    due = followup_due_after_seconds(FOLLOW_UP_INTERVAL_SEC)
+    await update_run_status(
+        run_id,
+        "waiting_for_followup",
+        state=state_obj,
+        followup_due_at=due,
+        follow_up_in_progress=False,
+    )
+    await insert_run_event(
+        run_id,
+        "followup_scheduled",
+        (
+            f"The next follow-up is scheduled for {due.isoformat()} "
+            f"(attempt {attempt_num} of up to {FOLLOW_UP_LIMIT}) after handling the engineer's reply."
+        ),
+        {
+            "next_followup_at": due.isoformat(),
+            "follow_up_count": state_obj.get("follow_up_count"),
+            "followup_attempt_number": attempt_num,
+            "message_id": state_obj.get("message_id"),
+            "thread_id": state_obj.get("thread_id"),
         },
     )
     return None

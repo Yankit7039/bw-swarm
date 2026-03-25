@@ -11,7 +11,8 @@ locals {
     "jira-email"           = var.jira_email
     "jira-api-token"       = var.jira_api_token
     "jira-base"            = var.jira_base
-    "jira-webhook-secret"  = var.jira_webhook_secret
+    "jira-webhook-secret"       = var.jira_webhook_secret
+    "agentmail-webhook-secret"  = var.agentmail_webhook_secret
   })
 }
 

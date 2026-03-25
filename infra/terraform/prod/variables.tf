@@ -59,6 +59,13 @@ variable "jira_webhook_secret" {
   default     = "REPLACE_ME"
 }
 
+variable "agentmail_webhook_secret" {
+  description = "HMAC secret for Runtime AgentMail webhook; stored as agentmail-webhook-secret in Secrets Manager."
+  type        = string
+  sensitive   = true
+  default     = "REPLACE_ME"
+}
+
 variable "route53_zone_id" {
   description = "Route 53 hosted zone ID for singledigit.team."
   type        = string

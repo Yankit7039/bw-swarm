@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, JSON, text
+from sqlalchemy import Boolean, DateTime, JSON, bindparam, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -183,7 +183,10 @@ async def update_run_status(
 
 
 async def get_runs_with_uncleaned_claims() -> list[tuple[UUID, str]]:
-    """Returns (run_id, sandbox_claim_name) for terminal runs with a claim not yet deleted."""
+    """Returns (run_id, sandbox_claim_name) for terminal runs with a claim not yet deleted.
+
+    Do not add 'processing_reply' to the status list — those runs may still have an active pod.
+    """
     async with async_session_factory() as session:
         result = await session.execute(
             text(
@@ -204,6 +207,7 @@ async def fetch_due_followup_runs() -> list[tuple[UUID, str, dict, dict | None]]
             text(
                 "SELECT run_id, template_id, payload, state FROM runs "
                 "WHERE status = 'waiting_for_followup' "
+                "AND status <> 'processing_reply' "
                 "AND followup_due_at IS NOT NULL AND followup_due_at <= NOW() "
                 "AND follow_up_in_progress = false"
             ),
@@ -220,6 +224,7 @@ async def claim_followup_run(run_id: UUID) -> bool:
             text(
                 "UPDATE runs SET status = 'running', follow_up_in_progress = true, updated_at = :now "
                 "WHERE run_id = :run_id AND status = 'waiting_for_followup' "
+                "AND status <> 'processing_reply' "
                 "AND followup_due_at IS NOT NULL AND followup_due_at <= :now "
                 "AND follow_up_in_progress = false"
             ),
@@ -272,3 +277,67 @@ async def get_run_events(run_id: UUID) -> list[dict]:
             }
             for r in rows
         ]
+
+
+async def get_communication_route(channel_thread_id: str) -> tuple[UUID, str] | None:
+    """Return (run_id, template_id) if this channel thread is registered."""
+    if not channel_thread_id or not str(channel_thread_id).strip():
+        return None
+    async with async_session_factory() as session:
+        result = await session.execute(
+            text(
+                "SELECT run_id, template_id FROM communication_threads WHERE channel_thread_id = :tid"
+            ),
+            {"tid": str(channel_thread_id).strip()},
+        )
+        row = result.fetchone()
+        if row is None:
+            return None
+        return (row[0], row[1])
+
+
+async def enqueue_pending_inbound(channel_thread_id: str, payload: dict) -> None:
+    async with async_session_factory() as session:
+        await session.execute(
+            text(
+                "INSERT INTO pending_inbound_interactions (channel_thread_id, payload, processed, created_at) "
+                "VALUES (:tid, :payload, false, :now)"
+            ).bindparams(bindparam("payload", type_=JSONB)),
+            {
+                "tid": channel_thread_id,
+                "payload": payload,
+                "now": datetime.now(timezone.utc),
+            },
+        )
+        await session.commit()
+
+
+async def try_claim_run_for_reply(run_id: UUID) -> bool:
+    """Atomically transition waiting_for_followup -> processing_reply. Returns True if one row updated."""
+    now = datetime.now(timezone.utc)
+    async with async_session_factory() as session:
+        result = await session.execute(
+            text(
+                "UPDATE runs SET status = 'processing_reply', updated_at = :now, follow_up_in_progress = false "
+                "WHERE run_id = :run_id AND status = 'waiting_for_followup' AND follow_up_in_progress = false"
+            ),
+            {"run_id": str(run_id), "now": now},
+        )
+        await session.commit()
+        rc = result.rowcount
+        return rc is not None and rc > 0
+
+
+async def mark_pending_processed_for_thread(channel_thread_id: str) -> int:
+    """Mark all unprocessed pending rows for this thread processed; returns number of rows updated."""
+    async with async_session_factory() as session:
+        result = await session.execute(
+            text(
+                "UPDATE pending_inbound_interactions SET processed = true "
+                "WHERE channel_thread_id = :tid AND processed = false"
+            ),
+            {"tid": channel_thread_id},
+        )
+        await session.commit()
+        rc = result.rowcount
+        return int(rc) if rc is not None else 0

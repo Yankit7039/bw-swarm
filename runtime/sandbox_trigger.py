@@ -148,7 +148,11 @@ async def trigger_sandbox_post_run(run_id: uuid.UUID, template_id: str, payload:
         return
 
     attempt = _sandbox_attempt_from_payload(payload)
-    claim_name = f"run-{run_id.hex[:12]}-a{attempt}"
+    base = f"run-{run_id.hex[:12]}-a{attempt}"
+    if isinstance(payload, dict) and payload.get("reply_context"):
+        claim_name = f"{base}-reply"
+    else:
+        claim_name = base
     namespace = SANDBOX_NAMESPACE
     created = _create_sandbox_claim(claim_name, warm_pool_ref, namespace)
 

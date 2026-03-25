@@ -38,6 +38,11 @@ spec:
                 secretKeyRef:
                   name: adk-secrets
                   key: jira-webhook-secret
+            - name: AGENTMAIL_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: agentmail-webhook-secret
           resources:
             requests:
               memory: "256Mi"

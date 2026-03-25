@@ -68,3 +68,9 @@ variable "jira_webhook_secret" {
   sensitive   = true
 }
 
+variable "agentmail_webhook_secret" {
+  description = "HMAC secret for POST /webhooks/agentmail (runtime AgentMail webhook)."
+  type        = string
+  sensitive   = true
+}
+

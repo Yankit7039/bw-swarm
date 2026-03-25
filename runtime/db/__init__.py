@@ -11,6 +11,10 @@ from .db import (
     update_run_status,
     insert_run_event,
     get_run_events,
+    get_communication_route,
+    enqueue_pending_inbound,
+    try_claim_run_for_reply,
+    mark_pending_processed_for_thread,
     async_session_factory,
     init_db,
 )
@@ -26,6 +30,10 @@ __all__ = [
     "update_run_status",
     "insert_run_event",
     "get_run_events",
+    "get_communication_route",
+    "enqueue_pending_inbound",
+    "try_claim_run_for_reply",
+    "mark_pending_processed_for_thread",
     "async_session_factory",
     "init_db",
 ]

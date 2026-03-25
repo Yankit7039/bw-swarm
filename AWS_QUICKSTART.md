@@ -33,8 +33,11 @@ agentmail_inbox_id   = "your-inbox@agentmail.to"
 jira_email           = "REPLACE_ME"
 jira_api_token       = "REPLACE_ME"
 jira_base            = "https://swarm-bw.atlassian.net"
-jira_webhook_secret  = "REPLACE_ME"
+jira_webhook_secret       = "REPLACE_ME"
+agentmail_webhook_secret  = "REPLACE_ME"
 ```
+
+Set `agentmail_webhook_secret` to the signing secret AgentMail uses for `POST /webhooks/agentmail` on the Runtime (stored as `agentmail-webhook-secret` in Secrets Manager / `adk-secrets`). The adapter continues to use `agentmail_inbox_id` for MCP send; the runtime does not require `AGENTMAIL_INBOX_ID`.
 
 Use placeholders (`REPLACE_ME`) if you are not using AgentMail yet; the adapter will mock send. For Jira (`ticket-email-routing` template: `jira__get_ticket`, `jira__transition_ticket`), set `jira_email` and `jira_api_token` to your Atlassian account email and API token; `jira_base` is your site URL (no trailing slash). Set `jira_webhook_secret` to the Bearer token Jira sends to `POST /webhooks/jira` on the Runtime (stored as `jira-webhook-secret` in Secrets Manager / `adk-secrets`). Do not commit real API keys. Use local edits or a secrets manager.
 

@@ -142,7 +142,8 @@ module "secrets" {
   jira_email            = var.jira_email
   jira_api_token        = var.jira_api_token
   jira_base             = var.jira_base
-  jira_webhook_secret   = var.jira_webhook_secret
+  jira_webhook_secret        = var.jira_webhook_secret
+  agentmail_webhook_secret   = var.agentmail_webhook_secret
   db_endpoint           = module.rds.rds_endpoint
   db_password           = random_password.db.result
 }
