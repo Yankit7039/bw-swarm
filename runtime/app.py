@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from runtime.claim_reconciler import claim_reconciler
 from runtime.followup_poller import followup_poller
+from runtime.pending_reply_worker import build_reply_merge_payload, pending_reply_worker
 from runtime.db import (
     create_run,
     enqueue_pending_inbound,
@@ -55,6 +56,7 @@ async def startup():
     await run_migrations()
     asyncio.create_task(claim_reconciler())
     asyncio.create_task(followup_poller())
+    asyncio.create_task(pending_reply_worker())
 
 
 @app.post("/runs")
@@ -211,23 +213,6 @@ async def _read_and_verify_agentmail_webhook(request: Request) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def _reply_body_from_message(msg: dict) -> str:
-    if not isinstance(msg, dict):
-        return ""
-    ext = msg.get("extracted_text")
-    if ext is not None and str(ext).strip():
-        return str(ext).strip()
-    t = msg.get("text")
-    return str(t).strip() if t is not None else ""
-
-
-def _normalize_message_from(msg: dict) -> object:
-    raw = msg.get("from") if isinstance(msg, dict) else None
-    if isinstance(raw, list):
-        return raw
-    return raw
-
-
 async def _agentmail_webhook_task(body: dict) -> None:
     if body.get("event_type") != "message.received":
         return
@@ -260,25 +245,18 @@ async def _agentmail_webhook_task(body: dict) -> None:
         await enqueue_pending_inbound(thread_id, full_payload)
         return
 
+    reply_prior_status = str(status).strip()
+    if reply_prior_status not in ("waiting_for_followup", "exhausted"):
+        reply_prior_status = "waiting_for_followup"
+
     claimed = await try_claim_run_for_reply(run_id)
     if not claimed:
         await enqueue_pending_inbound(thread_id, full_payload)
         return
 
-    st = run.get("state") if isinstance(run.get("state"), dict) else {}
-    base_payload = dict(run.get("payload") or {}) if isinstance(run.get("payload"), dict) else {}
-    reply_body = _reply_body_from_message(msg)
-    inbound_mid = msg.get("message_id")
-    merged = {
-        **base_payload,
-        "thread_state": st,
-        "reply_context": {
-            "body": reply_body,
-            "from": _normalize_message_from(msg),
-            "inbound_message_id": str(inbound_mid).strip() if inbound_mid else None,
-            "thread_id": thread_id,
-        },
-    }
+    merged = build_reply_merge_payload(
+        run, thread_id, full_payload, reply_prior_status=reply_prior_status
+    )
 
     await insert_run_event(
         run_id,

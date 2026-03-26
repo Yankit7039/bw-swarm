@@ -16,6 +16,7 @@ from run_db import (
     followup_due_after_seconds,
     insert_communication_thread,
     insert_run_event,
+    mark_pending_processed_by_id,
     mark_pending_processed_for_thread,
     update_run_status,
 )
@@ -388,7 +389,22 @@ async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
 
         try:
             if is_reply:
-                terminal = await _persist_after_reply_pod(run_id, fc_for_session, rc_in, final_state)
+                reply_prior = str(payload.get("reply_prior_status") or "waiting_for_followup").strip()
+                pending_raw = payload.get("pending_inbound_id")
+                if isinstance(pending_raw, (int, float)):
+                    pending_id_val = int(pending_raw)
+                elif isinstance(pending_raw, str) and pending_raw.strip().isdigit():
+                    pending_id_val = int(pending_raw.strip())
+                else:
+                    pending_id_val = None
+                terminal = await _persist_after_reply_pod(
+                    run_id,
+                    fc_for_session,
+                    rc_in,
+                    final_state,
+                    reply_prior_status=reply_prior,
+                    pending_inbound_id=pending_id_val,
+                )
             elif is_followup:
                 terminal = await _persist_after_followup_pod(run_id, fc_in, final_state)
             else:
@@ -490,7 +506,13 @@ async def _persist_after_initial_pod(
 
 
 async def _persist_after_reply_pod(
-    run_id: uuid.UUID, thread_state: dict, reply_ctx: dict, final_state: dict
+    run_id: uuid.UUID,
+    thread_state: dict,
+    reply_ctx: dict,
+    final_state: dict,
+    *,
+    reply_prior_status: str,
+    pending_inbound_id: int | None,
 ) -> str | None:
     send_res = final_state.get("engineer_reply_result")
     if not _reply_succeeded(send_res):
@@ -515,7 +537,46 @@ async def _persist_after_reply_pod(
         )
         return None
 
-    n_pending = await mark_pending_processed_for_thread(tid)
+    state_obj = dict(thread_state) if isinstance(thread_state, dict) else {}
+    if rr.get("message_id"):
+        state_obj["message_id"] = str(rr["message_id"]).strip()
+    # Keep canonical thread_id in state; register outbound thread_ids so inbound replies route.
+    if rr.get("thread_id"):
+        rr_tid = str(rr["thread_id"]).strip()
+        if rr_tid and rr_tid != state_obj.get("thread_id"):
+            await insert_communication_thread(rr_tid, run_id, TEMPLATE_ID)
+
+    attempt_num = int(state_obj.get("followup_attempt_number") or 1)
+    prior = (reply_prior_status or "waiting_for_followup").strip()
+    due = None
+
+    if prior == "exhausted":
+        await update_run_status(
+            run_id,
+            "exhausted",
+            state=state_obj,
+            result={
+                "text": "Engineer reply handled; run remains exhausted (no further proactive follow-ups).",
+                "follow_up_count": state_obj.get("follow_up_count"),
+            },
+            follow_up_in_progress=False,
+            followup_due_at_clear=True,
+        )
+    else:
+        due = followup_due_after_seconds(FOLLOW_UP_INTERVAL_SEC)
+        await update_run_status(
+            run_id,
+            "waiting_for_followup",
+            state=state_obj,
+            followup_due_at=due,
+            follow_up_in_progress=False,
+        )
+
+    if pending_inbound_id is not None:
+        marked = await mark_pending_processed_by_id(pending_inbound_id)
+        n_pending = 1 if marked else 0
+    else:
+        n_pending = await mark_pending_processed_for_thread(tid)
     if n_pending > 0:
         await insert_run_event(
             run_id,
@@ -527,22 +588,19 @@ async def _persist_after_reply_pod(
             {"count": n_pending, "thread_id": tid},
         )
 
-    state_obj = dict(thread_state) if isinstance(thread_state, dict) else {}
-    if rr.get("message_id"):
-        state_obj["message_id"] = str(rr["message_id"]).strip()
-    if rr.get("thread_id"):
-        state_obj["thread_id"] = str(rr["thread_id"]).strip()
+    if prior == "exhausted":
+        await insert_run_event(
+            run_id,
+            "engineer_reply_after_exhausted",
+            (
+                "An engineer reply was handled while the run was exhausted; "
+                "no follow-up timer was reset."
+            ),
+            {"thread_id": tid, "run_id": str(run_id)},
+        )
+        return "exhausted"
 
-    attempt_num = int(state_obj.get("followup_attempt_number") or 1)
-
-    due = followup_due_after_seconds(FOLLOW_UP_INTERVAL_SEC)
-    await update_run_status(
-        run_id,
-        "waiting_for_followup",
-        state=state_obj,
-        followup_due_at=due,
-        follow_up_in_progress=False,
-    )
+    assert due is not None
     await insert_run_event(
         run_id,
         "followup_scheduled",
@@ -609,8 +667,11 @@ async def _persist_after_followup_pod(
     # Next reply must anchor to the latest outbound message in the thread.
     if rr.get("message_id"):
         state_obj["message_id"] = str(rr["message_id"]).strip()
+    # Keep canonical thread_id in state; register outbound thread_ids so inbound replies route.
     if rr.get("thread_id"):
-        state_obj["thread_id"] = str(rr["thread_id"]).strip()
+        rr_tid = str(rr["thread_id"]).strip()
+        if rr_tid and rr_tid != state_obj.get("thread_id"):
+            await insert_communication_thread(rr_tid, run_id, TEMPLATE_ID)
 
     mid = state_obj.get("message_id") or fc_in.get("message_id")
     tid = state_obj.get("thread_id") or fc_in.get("thread_id")
@@ -629,6 +690,27 @@ async def _persist_after_followup_pod(
     )
 
     if new_count >= FOLLOW_UP_LIMIT:
+        minimal = {
+            "order_id": state_obj.get("order_id"),
+            "thread_id": state_obj.get("thread_id"),
+            "contact_email": state_obj.get("contact_email"),
+            "contact_name": state_obj.get("contact_name"),
+            "message_id": state_obj.get("message_id"),
+            "last_email_subject": state_obj.get("last_email_subject"),
+            "last_email_body": state_obj.get("last_email_body"),
+            "follow_up_count": new_count,
+            "followup_attempt_number": next_attempt,
+            "follow_up_limit": FOLLOW_UP_LIMIT,
+            "follow_up_interval_seconds": FOLLOW_UP_INTERVAL_SEC,
+        }
+        await update_run_status(
+            run_id,
+            "exhausted",
+            state=minimal,
+            result={"text": "Follow-up limit reached; ticket still open.", "follow_up_count": new_count},
+            follow_up_in_progress=False,
+            followup_due_at_clear=True,
+        )
         await insert_run_event(
             run_id,
             "followup_exhausted",
@@ -637,13 +719,6 @@ async def _persist_after_followup_pod(
                 f"was still not resolved. This run is marked exhausted."
             ),
             {"follow_up_count": new_count, "follow_up_limit": FOLLOW_UP_LIMIT},
-        )
-        await clear_followup_columns(run_id)
-        await update_run_status(
-            run_id,
-            "exhausted",
-            result={"text": "Follow-up limit reached; ticket still open.", "follow_up_count": new_count},
-            follow_up_in_progress=False,
         )
         return "exhausted"
 

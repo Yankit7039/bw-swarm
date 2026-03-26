@@ -172,20 +172,28 @@ stages:
     type: deterministic
     skip_if: "is_reply == False"
     steps:
+      - name: fetch_ticket_reply
+        type: mcp_call
+        tool: jira__get_ticket
+        input:
+          order_id: "{{ order_id }}"
+        output_key: ticket_details
       - name: draft_engineer_reply
         type: llm_agent
         tool_filter:
           - agentmail__send_followup
         description: Draft a short reply to the engineer in the existing thread
         instruction: |
-          You respond in an internal escalation email thread. The engineer sent a message; reply helpfully and briefly using only facts from Order ID, their message, and the context below. Do not invent ticket IDs, systems, or customer details.
+          You respond in an internal escalation email thread. The engineer sent a message; reply helpfully and briefly using only facts from Order ID, their message, and the ticket context below. Do not invent ticket IDs, systems, or customer details.
 
           Order ID: {{ order_id }}
 
           Engineer's message:
           {{ reply_context['body'] }}
 
-          Context (thread / escalation): order {{ followup_context['order_id'] }}, contact {{ followup_context['contact_email'] }}.
+          Ticket context (Jira): {{ ticket_details }}
+
+          Thread / escalation: order {{ followup_context['order_id'] }}, contact {{ followup_context['contact_email'] }}.
 
           Respond ONLY as JSON, no markdown, no extra text:
           {"body": "..."}

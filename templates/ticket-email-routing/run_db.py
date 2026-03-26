@@ -26,6 +26,7 @@ async def update_run_status(
     state: dict | None = None,
     followup_due_at: datetime | None = None,
     follow_up_in_progress: bool | None = None,
+    followup_due_at_clear: bool = False,
 ) -> None:
     """Update runs table: status, optional result/error_message, follow-up columns."""
     now = datetime.now(timezone.utc)
@@ -36,6 +37,16 @@ async def update_run_status(
             WHERE run_id = :run_id
         """).bindparams(bindparam("status", type_=Text))
         await session.execute(stmt, {"run_id": str(run_id), "status": status, "now": now})
+        if followup_due_at_clear:
+            await session.execute(
+                text("UPDATE runs SET followup_due_at = NULL WHERE run_id = :run_id"),
+                {"run_id": str(run_id)},
+            )
+        elif followup_due_at is not None:
+            await session.execute(
+                text("UPDATE runs SET followup_due_at = :fd WHERE run_id = :run_id"),
+                {"run_id": str(run_id), "fd": followup_due_at},
+            )
         if result is not None:
             await session.execute(
                 text("UPDATE runs SET result = :result WHERE run_id = :run_id").bindparams(
@@ -59,11 +70,6 @@ async def update_run_status(
                     bindparam("state", type_=JSONB)
                 ),
                 {"run_id": str(run_id), "state": state},
-            )
-        if followup_due_at is not None:
-            await session.execute(
-                text("UPDATE runs SET followup_due_at = :fd WHERE run_id = :run_id"),
-                {"run_id": str(run_id), "fd": followup_due_at},
             )
         if follow_up_in_progress is not None:
             await session.execute(
@@ -154,3 +160,18 @@ async def mark_pending_processed_for_thread(channel_thread_id: str) -> int:
         await session.commit()
         rc = result.rowcount
         return int(rc) if rc is not None else 0
+
+
+async def mark_pending_processed_by_id(pending_id: int) -> bool:
+    """Mark one pending row processed. Returns True if a row was updated."""
+    async with async_session_factory() as session:
+        result = await session.execute(
+            text(
+                "UPDATE pending_inbound_interactions SET processed = true "
+                "WHERE id = :id AND processed = false"
+            ),
+            {"id": pending_id},
+        )
+        await session.commit()
+        rc = result.rowcount
+        return rc is not None and rc > 0

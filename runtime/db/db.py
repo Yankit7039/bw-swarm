@@ -313,15 +313,52 @@ async def enqueue_pending_inbound(channel_thread_id: str, payload: dict) -> None
 
 
 async def try_claim_run_for_reply(run_id: UUID) -> bool:
-    """Atomically transition waiting_for_followup -> processing_reply. Returns True if one row updated."""
+    """Atomically transition waiting_for_followup or exhausted -> processing_reply. Returns True if one row updated."""
     now = datetime.now(timezone.utc)
     async with async_session_factory() as session:
         result = await session.execute(
             text(
                 "UPDATE runs SET status = 'processing_reply', updated_at = :now, follow_up_in_progress = false "
-                "WHERE run_id = :run_id AND status = 'waiting_for_followup' AND follow_up_in_progress = false"
+                "WHERE run_id = :run_id AND follow_up_in_progress = false "
+                "AND status IN ('waiting_for_followup', 'exhausted')"
             ),
             {"run_id": str(run_id), "now": now},
+        )
+        await session.commit()
+        rc = result.rowcount
+        return rc is not None and rc > 0
+
+
+async def fetch_oldest_unprocessed_pending() -> tuple[int, str, object] | None:
+    """Oldest unprocessed pending row (FIFO by created_at). Returns (id, channel_thread_id, payload) or None.
+
+    Payload is returned as stored (typically a dict); non-dict JSON is preserved so callers can dead-letter.
+    """
+    async with async_session_factory() as session:
+        result = await session.execute(
+            text(
+                "SELECT id, channel_thread_id, payload FROM pending_inbound_interactions "
+                "WHERE processed = false ORDER BY created_at ASC LIMIT 1"
+            ),
+        )
+        row = result.fetchone()
+        if row is None:
+            return None
+        pid, tid, payload = row[0], row[1], row[2]
+        if payload is None:
+            payload = {}
+        return (int(pid), str(tid), payload)
+
+
+async def mark_pending_processed_by_id(pending_id: int) -> bool:
+    """Mark one pending row processed. Returns True if a row was updated."""
+    async with async_session_factory() as session:
+        result = await session.execute(
+            text(
+                "UPDATE pending_inbound_interactions SET processed = true "
+                "WHERE id = :id AND processed = false"
+            ),
+            {"id": pending_id},
         )
         await session.commit()
         rc = result.rowcount
