@@ -75,5 +75,28 @@ export const runsApi = {
 
     return results
   },
+
+  listWithEvents: async (params: { status?: string; limit?: number } = {}): Promise<Run[]> => {
+    const runsResponse = await adminApi.get('/runs/', { params })
+    const runs: Run[] = Array.isArray(runsResponse.data)
+      ? runsResponse.data
+      : runsResponse.data?.data ?? []
+
+    const runsWithEvents = await Promise.all(
+      runs.map(async (run) => {
+        try {
+          const eventsResponse = await adminApi.get(`/runs/${run.run_id}/events`)
+          return {
+            ...run,
+            events: eventsResponse.data || [],
+          }
+        } catch {
+          return { ...run, events: [] }
+        }
+      })
+    )
+
+    return runsWithEvents
+  },
 }
 

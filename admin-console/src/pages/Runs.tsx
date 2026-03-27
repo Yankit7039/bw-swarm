@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
@@ -6,11 +6,17 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Activity,
+  List,
+  Network,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { runsApi } from '../api/runs'
 import { useTemplates } from '../hooks/useTemplates'
 import type { Run } from '../types/common'
+
+const GlobalSwarmGraph = lazy(() =>
+  import('./runs/GlobalSwarmGraph').then((m) => ({ default: m.GlobalSwarmGraph }))
+)
 
 /** Design tokens aligned with SwarmOS Observe reference */
 const t = {
@@ -73,6 +79,7 @@ function templateInitial(name?: string, fallback?: string): string {
 const ITEMS_PER_PAGE = 10
 
 type TimePeriod = 'all' | '1day' | '1week' | '1month'
+type ViewMode = 'list' | 'swarm'
 
 const STATUS_OPTIONS: { id: StatusFilter; label: string }[] = [
   { id: 'all', label: 'All Runs' },
@@ -94,6 +101,7 @@ export const Runs = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selectedTemplate, setSelectedTemplate] = useState('')
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('all')
+  const [view, setView] = useState<ViewMode>('list')
 
   const { data: templates } = useTemplates(100, 0)
 
@@ -107,7 +115,19 @@ export const Runs = () => {
         limit: ITEMS_PER_PAGE,
         offset: (currentPage - 1) * ITEMS_PER_PAGE,
       }),
-    refetchInterval: 3000,
+    refetchInterval: view === 'list' ? 3000 : false,
+  })
+
+  // Fetch all runs with events for the swarm view
+  const { data: swarmRuns, isFetching: isSwarmLoading } = useQuery({
+    queryKey: ['runs-swarm', statusFilter, timePeriod],
+    queryFn: () =>
+      runsApi.listWithEvents({
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        limit: 50,
+      }),
+    refetchInterval: view === 'swarm' ? 2000 : false,
+    enabled: view === 'swarm',
   })
 
   const items: RunRow[] = runs?.data ?? []
@@ -132,61 +152,54 @@ export const Runs = () => {
                 Monitor all active and historical swarm executions with real-time telemetry and success rate tracking.
               </p>
             </div>
+
+            {/* View toggle tabs */}
+            <div className="flex gap-1 bg-[#f0f4f7] p-1.5 rounded-xl self-start md:self-end">
+              <button
+                type="button"
+                onClick={() => setView('list')}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                  view === 'list'
+                    ? 'bg-white text-[#6d3bd7] shadow-sm'
+                    : 'text-[#566166] hover:text-[#2a3439]'
+                }`}
+              >
+                <List className="w-4 h-4" />
+                List
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('swarm')}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                  view === 'swarm'
+                    ? 'bg-white text-[#6d3bd7] shadow-sm'
+                    : 'text-[#566166] hover:text-[#2a3439]'
+                }`}
+              >
+                <Network className="w-4 h-4" />
+                Swarm
+              </button>
+            </div>
           </div>
 
-          {/* Metric cards — derived from current page (live refresh) */}
-          {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <div className={`${t.surface} p-6 rounded-2xl shadow-sm space-y-4 border ${t.outlineVar}`}>
-              <div className="flex items-center justify-between">
-                <span className={`text-sm font-semibold ${t.onVar} uppercase tracking-wider`}>Running (page)</span>
-                <Radio className={`w-5 h-5 ${t.primary}`} />
-              </div>
-              <div className="flex items-end gap-2">
-                <span className="text-3xl font-extrabold font-headline">{stats.running}</span>
-                {isFetching && (
-                  <span className="text-emerald-600 text-sm font-bold mb-1 flex items-center gap-0.5">
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                    sync
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className={`${t.surface} p-6 rounded-2xl shadow-sm space-y-4 border ${t.outlineVar}`}>
-              <div className="flex items-center justify-between">
-                <span className={`text-sm font-semibold ${t.onVar} uppercase tracking-wider`}>Runs (page)</span>
-                <Sparkles className={`w-5 h-5 ${t.primary}`} />
-              </div>
-              <div className="flex items-end gap-2">
-                <span className="text-3xl font-extrabold font-headline">{items.length}</span>
-                <span className={`${t.onVar} text-sm font-medium mb-1`}>of {ITEMS_PER_PAGE} max</span>
-              </div>
-            </div>
-            <div className={`${t.surface} p-6 rounded-2xl shadow-sm space-y-4 border ${t.outlineVar}`}>
-              <div className="flex items-center justify-between">
-                <span className={`text-sm font-semibold ${t.onVar} uppercase tracking-wider`}>Success (page)</span>
-                <BadgeCheck className={`w-5 h-5 ${t.primary}`} />
-              </div>
-              <div className="flex items-end gap-2">
-                <span className="text-3xl font-extrabold font-headline">{stats.successRate}%</span>
-                <span className="text-emerald-600 text-sm font-bold mb-1">terminal runs</span>
-              </div>
-            </div>
-            <div className={`${t.surface} p-6 rounded-2xl shadow-sm space-y-4 border ${t.outlineVar}`}>
-              <div className="flex items-center justify-between">
-                <span className={`text-sm font-semibold ${t.onVar} uppercase tracking-wider`}>Page health</span>
-                <Activity className="w-5 h-5 text-emerald-500" />
-              </div>
-              <div className="flex items-end gap-2">
-                <span className="text-3xl font-extrabold font-headline">{Math.round(stats.health)}%</span>
-                <div className="mb-2 flex gap-1">
-                  <div className="w-1 h-3 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                  <div className="w-1 h-4 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                  <div className="w-1 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+          {view === 'swarm' ? (
+            <Suspense
+              fallback={
+                <div className="h-[600px] flex items-center justify-center rounded-2xl border border-[#e8ecf1] bg-[#fafbfc]">
+                  <div className="text-center">
+                    <div className="w-10 h-10 border-2 border-[#6d3bd7] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-sm text-[#566166]">Loading swarm visualization…</p>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div> */}
-
+              }
+            >
+              <GlobalSwarmGraph
+                runs={swarmRuns || []}
+                isLoading={isSwarmLoading}
+              />
+            </Suspense>
+          ) : (
+            <>
           {/* Filter row with dropdowns */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Status filter dropdown */}
@@ -431,61 +444,8 @@ export const Runs = () => {
               </button>
             </div>
           </div>
-
-          {/* Footer insight row (reference layout, no external assets) */}
-          {/* <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 pb-6">
-            <div className="lg:col-span-2 bg-gradient-to-br from-[#6d3bd7] to-[#4d00b7] p-8 rounded-3xl text-white relative overflow-hidden">
-              <div className="absolute inset-0 opacity-10 pointer-events-none text-white">
-                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-                  <path d="M0 100 C 20 0 50 0 100 100 Z" fill="currentColor" />
-                </svg>
-              </div>
-              <div className="relative z-10 flex flex-col gap-8">
-                <div className="space-y-2">
-                  <span className="text-xs font-bold uppercase tracking-widest opacity-80">Orchestration health</span>
-                  <h3 className="text-2xl sm:text-3xl font-extrabold font-headline leading-tight">
-                    {stats.failed === 0
-                      ? 'No failures on this page — swarms look stable.'
-                      : `${stats.failed} run(s) need attention on this page.`}
-                  </h3>
-                </div>
-                <div className="flex flex-wrap items-center gap-8">
-                  <div>
-                    <div className="text-sm opacity-70 mb-1">Success (page)</div>
-                    <div className="text-xl font-bold">{stats.successRate}%</div>
-                  </div>
-                  <div>
-                    <div className="text-sm opacity-70 mb-1">Active</div>
-                    <div className="text-xl font-bold">{stats.running}</div>
-                  </div>
-                  <Link
-                    to="/test-runs"
-                    className="ml-auto px-6 py-3 bg-white/20 backdrop-blur-md rounded-xl font-bold hover:bg-white/30 transition-colors text-sm sm:text-base"
-                  >
-                    Trigger batch
-                  </Link>
-                </div>
-              </div>
-            </div>
-            <div className={`${t.surfaceLow} p-8 rounded-3xl border ${t.outlineVar} flex flex-col justify-between`}>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold font-headline text-[#2a3439]">Activity</h4>
-                  <Map className={`w-5 h-5 ${t.primary}`} />
-                </div>
-                <div className={`h-32 ${t.surfaceContainer} rounded-xl overflow-hidden relative flex items-center justify-center`}>
-                  <div className="relative">
-                    <div className="w-3 h-3 bg-[#6d3bd7] rounded-full animate-ping absolute" />
-                    <div className="w-3 h-3 bg-[#6d3bd7] rounded-full relative" />
-                  </div>
-                </div>
-              </div>
-              <p className={`mt-6 text-xs ${t.onVar} leading-relaxed`}>
-                Tip: use <span className="font-bold text-[#2a3439]">Execution Mesh</span> from Test Runs to visualize
-                orchestration for a batch.
-              </p>
-            </div>
-          </div> */}
+            </>
+          )}
         </div>
       </div>
     </Layout>
