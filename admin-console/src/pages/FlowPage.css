@@ -1,0 +1,423 @@
+/* Flow page canvas — premium ops dashboard */
+
+.flow-page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  background: #fafbfc;
+}
+
+.flow-page__toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e8ecf1;
+  background: #fff;
+}
+
+.run-detail-pipeline-flow .flow-page__toolbar {
+  align-items: flex-start;
+}
+
+.flow-page__toolbar label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.flow-page__select {
+  min-width: 280px;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.flow-page__canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  width: 100%;
+}
+
+/* React Flow error #004: parent must have explicit width + height */
+.flow-page__rf-root {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 320px;
+}
+
+.flow-page__warning {
+  margin: auto;
+  max-width: 420px;
+  padding: 2rem;
+  text-align: center;
+  border-radius: 1rem;
+  background: #fff;
+  border: 1px solid #fde68a;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+}
+
+.flow-page__warning h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #92400e;
+  margin-bottom: 0.5rem;
+}
+
+.flow-page__warning p {
+  font-size: 0.875rem;
+  color: #78716c;
+  line-height: 1.5;
+}
+
+.flow-page__status {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  background: #fff;
+  border-top: 1px solid #e8ecf1;
+}
+
+.flow-page__status strong {
+  color: #334155;
+  font-weight: 600;
+}
+
+/* React Flow overrides */
+.flow-page .react-flow__background {
+  background-color: #fafbfc !important;
+}
+
+.flow-page .react-flow__minimap {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+}
+
+.flow-page .react-flow__controls {
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* Pipeline node cards — fixed size; palette from chain index (see FLOW_NODE_PALETTE_SIZE in buildGraphFromYaml). */
+.flow-pipeline-node {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  min-width: 220px;
+  max-width: 220px;
+  min-height: 132px;
+  border-radius: 0.75rem;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-left: 4px solid #94a3b8;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.flow-pipeline-node--synthetic {
+  border-left-width: 4px;
+}
+
+/* 0 — CRM lavender */
+.flow-node--fill-0 {
+  background: linear-gradient(160deg, #ebe4f7 0%, #f3edfc 55%, #e8dff5 100%);
+  border-color: #d4c8ec;
+  border-left-color: #6b5bb8;
+}
+
+/* 1 — BSS peach */
+.flow-node--fill-1 {
+  background: linear-gradient(160deg, #ffecdd 0%, #fff2e8 55%, #ffe8d4 100%);
+  border-color: #f0d0b8;
+  border-left-color: #d97706;
+}
+
+/* 2 — OSS sky */
+.flow-node--fill-2 {
+  background: linear-gradient(160deg, #d9ecff 0%, #e8f4ff 55%, #d0e8fc 100%);
+  border-color: #a8cef0;
+  border-left-color: #2b7fcc;
+}
+
+/* 3 — Network mint */
+.flow-node--fill-3 {
+  background: linear-gradient(160deg, #dff5ef 0%, #eaf9f5 55%, #d4f0e8 100%);
+  border-color: #b0dfd4;
+  border-left-color: #0f766e;
+}
+
+/* 4 — Soft rose */
+.flow-node--fill-4 {
+  background: linear-gradient(160deg, #fce8f2 0%, #fdf2f7 55%, #f9dce8 100%);
+  border-color: #e9c4d6;
+  border-left-color: #b84d7a;
+}
+
+/* 5 — Periwinkle */
+.flow-node--fill-5 {
+  background: linear-gradient(160deg, #e4e8f7 0%, #eef1fb 55%, #dce2f2 100%);
+  border-color: #c5cde5;
+  border-left-color: #5c6ba8;
+}
+
+.flow-pipeline-node__border {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border-top: 4px solid #94a3b8;
+  border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.flow-node--fill-0 .flow-pipeline-node__border {
+  border-top-color: #6b5bb8;
+}
+.flow-node--fill-1 .flow-pipeline-node__border {
+  border-top-color: #d97706;
+}
+.flow-node--fill-2 .flow-pipeline-node__border {
+  border-top-color: #2b7fcc;
+}
+.flow-node--fill-3 .flow-pipeline-node__border {
+  border-top-color: #0f766e;
+}
+.flow-node--fill-4 .flow-pipeline-node__border {
+  border-top-color: #b84d7a;
+}
+.flow-node--fill-5 .flow-pipeline-node__border {
+  border-top-color: #5c6ba8;
+}
+
+.flow-pipeline-node__inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0.75rem 0.875rem 0.625rem;
+}
+
+.flow-pipeline-node__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+/* Single-line terminal-style ticker — footer strip at bottom of node */
+.flow-pipeline-node__ticker {
+  margin-top: auto;
+  padding: 0.25rem 0.4rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  min-height: 1.625rem;
+  max-height: 1.625rem;
+  overflow: hidden;
+  border-radius: 0.35rem;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.flow-pipeline-node__ticker--dimmed {
+  opacity: 0.48;
+}
+
+.flow-pipeline-node__ticker--error .flow-pipeline-node__ticker-inner {
+  color: #9e3f4e;
+}
+
+.flow-pipeline-node__ticker--success .flow-pipeline-node__ticker-inner {
+  color: #0f766e;
+}
+
+.flow-pipeline-node__ticker-inner {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  font-weight: 500;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: flow-ticker-line-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes flow-ticker-line-in {
+  0% {
+    opacity: 0;
+    transform: translateY(0.55rem);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.flow-pipeline-node__title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  word-break: break-word;
+  text-transform: uppercase;
+}
+
+.flow-pipeline-node__badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.flow-pipeline-node__dots {
+  margin-top: 0.25rem;
+  min-height: 1.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem 0.75rem;
+  flex: 1;
+}
+
+.flow-pipeline-node__dots-placeholder {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+}
+
+.flow-run-dot-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  transition: opacity 0.45s ease;
+}
+
+.flow-run-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9);
+  animation: flow-dot-pulse 1.6s ease-in-out infinite;
+}
+
+.flow-run-dot--running {
+  background: #2563eb;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.9),
+    0 0 12px rgba(37, 99, 235, 0.55);
+}
+
+.flow-run-dot--followup {
+  background: #d97706;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.9),
+    0 0 12px rgba(217, 119, 6, 0.5);
+}
+
+.flow-run-dot--completed {
+  background: #059669;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.9),
+    0 0 12px rgba(5, 150, 105, 0.45);
+}
+
+.flow-run-dot-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: #64748b;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes flow-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.75;
+  }
+}
+
+.flow-handle {
+  width: 8px !important;
+  height: 8px !important;
+  border: 2px solid #fff !important;
+  background: #94a3b8 !important;
+}
+
+/* Main pipeline edges — soft glow on animated paths */
+.flow-page .react-flow__edge.flow-edge--main .react-flow__edge-path {
+  filter: drop-shadow(0 0 4px rgba(156, 163, 232, 0.5));
+}
+
+/* Dots traveling along edges (SVG) */
+.flow-edge-run-dot-circle {
+  animation: flow-dot-pulse 1.6s ease-in-out infinite;
+}
+
+.flow-edge-run-dot-circle--running {
+  fill: #2563eb;
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.55));
+}
+
+.flow-edge-run-dot-circle--followup {
+  fill: #d97706;
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 6px rgba(217, 119, 6, 0.5));
+}
+
+.flow-edge-run-dot-circle--completed {
+  fill: #059669;
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 6px rgba(5, 150, 105, 0.45));
+}
+
+.flow-edge-run-dot-svg-label {
+  font-size: 8px;
+  font-weight: 600;
+  fill: #64748b;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.flow-pipeline-node__dots--synthetic {
+  min-height: 1.75rem;
+}

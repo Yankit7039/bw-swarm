@@ -11,16 +11,19 @@ import {
   ChevronRight,
   Network,
   Bot,
-  Info,
   Verified,
   // ArrowLeft,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { runsApi } from '../api/runs'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, lazy, Suspense } from 'react'
 import type { Run } from '../types/common'
 import { buildRunLogTree, countLogLines, type LogAgentSection } from './run-detail/buildRunLogTree'
-import { RunDetailFlowGraph } from './run-detail/RunDetailFlowGraph'
+import type { FlowRunEvent } from '../utils/flowApi'
+
+const RunDetailPipelineFlow = lazy(() =>
+  import('./run-detail/RunDetailPipelineFlow').then((m) => ({ default: m.RunDetailPipelineFlow })),
+)
 
 const t = {
   bg: 'bg-[#f7f9fb]',
@@ -43,7 +46,7 @@ const t = {
   errorSoft: 'bg-[#ff8b9a]/10',
 }
 
-type DetailView = 'logs' | 'graphical'
+type DetailView = 'logs' | 'workflow'
 
 interface WorkflowNode {
   id: string
@@ -142,7 +145,6 @@ export const RunDetail = () => {
   const [orchOpen, setOrchOpen] = useState(true)
   /** Agents collapsed when id is in set (default: all expanded) */
   const [collapsedAgents, setCollapsedAgents] = useState<Set<string>>(new Set())
-  const [graphSearch, setGraphSearch] = useState('')
 
   const { data: run } = useQuery<Run>({
     queryKey: ['run', runId],
@@ -154,7 +156,7 @@ export const RunDetail = () => {
     },
   })
 
-  const { data: events = [] } = useQuery<RunEvent[]>({
+  const { data: events = [], dataUpdatedAt: eventsDataUpdatedAt } = useQuery<RunEvent[]>({
     queryKey: ['run-events', runId],
     queryFn: () => runsApi.events(runId || ''),
     enabled: !!runId,
@@ -358,7 +360,7 @@ export const RunDetail = () => {
       <div className={`min-h-0 flex flex-col ${t.bg} ${t.onSurface} font-body`}>
         {/* Main section header (not app TopBar): back + title + view toggle */}
         <header className="sticky top-0 z-30 shrink-0 border-b border-[#d9e4ea]/80 bg-white/95 backdrop-blur-xl px-4 sm:px-8 py-4 shadow-[0_1px_0_rgba(217,228,234,0.6)]">
-          <div className="max-w-6xl mx-auto flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="mx-auto flex w-full max-w-[min(100%,1400px)] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-start gap-4">
               {/* <Link
                 to="/runs"
@@ -379,7 +381,7 @@ export const RunDetail = () => {
                 <button
                   type="button"
                   onClick={() => setView('logs')}
-                  className={`px-4 sm:px-5 py-1.5 text-sm font-semibold rounded-full transition-all ${
+                  className={`px-4 sm:px-5 py-1.5 text-sm font-semibold rounded-full transition-all duration-200 ${
                     view === 'logs'
                       ? 'bg-white text-[#6d3bd7] shadow-sm'
                       : 'text-[#566166] hover:text-[#2a3439]'
@@ -387,17 +389,17 @@ export const RunDetail = () => {
                 >
                   Logs
                 </button>
-                {/* <button
+                <button
                   type="button"
-                  onClick={() => setView('graphical')}
-                  className={`px-4 sm:px-5 py-1.5 text-sm font-medium rounded-full transition-all ${
-                    view === 'graphical'
-                      ? 'bg-white text-[#6d3bd7] shadow-sm font-semibold'
+                  onClick={() => setView('workflow')}
+                  className={`px-4 sm:px-5 py-1.5 text-sm font-semibold rounded-full transition-all duration-200 ${
+                    view === 'workflow'
+                      ? 'bg-white text-[#6d3bd7] shadow-sm'
                       : 'text-[#566166] hover:text-[#2a3439]'
                   }`}
                 >
-                  Graphical
-                </button> */}
+                  Workflow
+                </button>
               </nav>
             </div>
             {view === 'logs' && (
@@ -412,23 +414,11 @@ export const RunDetail = () => {
                 />
               </div>
             )}
-            {view === 'graphical' && (
-              <div className="relative flex items-center w-full lg:max-w-xs">
-                <Search className={`absolute left-3 w-4 h-4 ${t.outline}`} />
-                <input
-                  value={graphSearch}
-                  onChange={(e) => setGraphSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-[#f0f4f7] border-none rounded-lg text-sm focus:ring-2 focus:ring-[#6d3bd7]/20 placeholder:text-[#a9b4b9]"
-                  placeholder="Search nodes…"
-                  type="search"
-                />
-              </div>
-            )}
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 pb-28 flex flex-col gap-6">
+          <div className="mx-auto flex w-full max-w-[min(100%,1400px)] flex-col gap-6 px-4 py-6 pb-28 sm:px-8">
             {/* Run context card */}
             <div
               className={`${t.surfaceLowest} rounded-xl p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-[0_12px_40px_-12px_rgba(42,52,57,0.08)] border border-[#d9e4ea]/20`}
@@ -675,109 +665,27 @@ export const RunDetail = () => {
               </>
             )}
 
-            {view === 'graphical' && (
-              <>
-                <RunDetailFlowGraph
-                  workflowNodes={workflowNodes}
-                  runStatus={runStatus}
-                  graphSearch={graphSearch}
+            {view === 'workflow' && run && (
+              <Suspense
+                fallback={
+                  <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-[#e8ecf1] bg-[#fafbfc] text-sm text-slate-500">
+                    Loading workflow…
+                  </div>
+                }
+              >
+                <RunDetailPipelineFlow
+                  run={run}
+                  flowEvents={events as FlowRunEvent[]}
+                  eventsDataUpdatedAt={eventsDataUpdatedAt}
                 />
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                  <div className="rounded-2xl border border-[#d9e4ea]/20 bg-white p-6 shadow-sm lg:col-span-4">
-                    <div className="mb-4 flex items-center justify-between">
-                      <h4 className="font-headline text-sm font-bold uppercase tracking-tight text-[#2a3439]">
-                        Active nodes context
-                      </h4>
-                      <Info className="h-5 w-5 text-[#717c82]" />
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-2 rounded-full bg-[#6d3bd7]" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-end justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-700">Request throughput</span>
-                            <span className="text-xs font-medium text-slate-500">
-                              {Math.min(2000, 120 + events.length * 18)} req/s
-                            </span>
-                          </div>
-                          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#e8eff3]">
-                            <div
-                              className="h-full bg-[#6d3bd7]"
-                              style={{ width: `${Math.min(100, 35 + (events.length % 60))}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-2 rounded-full bg-[#506076]" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-end justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-700">Error rate</span>
-                            <span className="text-xs font-medium text-slate-500">
-                              {workflowNodes.some((n) => n.status === 'failed') ? '2.1%' : '0.02%'}
-                            </span>
-                          </div>
-                          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#e8eff3]">
-                            <div
-                              className="h-full bg-emerald-500"
-                              style={{
-                                width: workflowNodes.some((n) => n.status === 'failed') ? '8%' : '2%',
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative overflow-hidden rounded-2xl border border-[#d9e4ea]/20 bg-white p-6 shadow-sm lg:col-span-8">
-                    <div className="relative z-10 mb-4 flex items-center justify-between">
-                      <h4 className="font-headline text-sm font-bold uppercase tracking-tight text-[#2a3439]">
-                        System message stream
-                      </h4>
-                      <span className="rounded bg-[#e9ddff] px-2 py-0.5 text-[10px] font-bold text-[#6d3bd7]">
-                        Real-time
-                      </span>
-                    </div>
-                    <div className="relative z-10 max-h-48 space-y-2 overflow-y-auto font-mono text-[11px]">
-                      {events.slice(-5).map((e, i) => (
-                        <div
-                          key={e.id || i}
-                          className="flex gap-4 rounded p-2 transition-colors hover:bg-slate-100"
-                        >
-                          <span className="shrink-0 text-slate-400">[{formatTimeLog(e.created_at)}]</span>
-                          <span className="shrink-0 font-bold uppercase text-[#506076]">
-                            {e.event_type.replace(/_/g, ' ').slice(0, 14)}
-                          </span>
-                          <span className="min-w-0 break-words font-sans text-slate-600">
-                            {formatPayload(e.payload) || e.event}
-                          </span>
-                        </div>
-                      ))}
-                      {events.length === 0 && (
-                        <p className="py-4 text-center font-sans text-sm text-[#566166]">No messages yet.</p>
-                      )}
-                    </div>
-                    <div className="pointer-events-none absolute inset-0 opacity-5">
-                      <svg className="h-full w-full text-[#2a3439]" viewBox="0 0 100 100">
-                        <path
-                          d="M0 100 Q 25 25 50 100 T 100 100"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="0.5"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </>
+              </Suspense>
             )}
           </div>
         </div>
 
         {/* Technical footer strip (main section only) */}
         <footer className="shrink-0 border-t border-slate-200/10 bg-slate-50/80 py-3 px-4 backdrop-blur-md sm:px-8">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 text-[10px] uppercase tracking-wider text-slate-500 sm:text-xs">
+          <div className="mx-auto flex w-full max-w-[min(100%,1400px)] flex-wrap items-center justify-between gap-3 text-[10px] uppercase tracking-wider text-slate-500 sm:text-xs">
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               <span>Swarm runtime v2.4.1</span>

@@ -82,7 +82,7 @@ export const Layout = ({ children }: LayoutProps) => {
         }`}
       >
         <TopBar onOpenMobileSidebar={openMobile} />
-        <main className="flex-1 bg-slate-50">{children}</main>
+        <main className="flex min-h-0 flex-1 flex-col bg-slate-50">{children}</main>
       </div>
     </div>
   )

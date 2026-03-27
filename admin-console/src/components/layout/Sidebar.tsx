@@ -1,9 +1,10 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Layers, Database, Zap, PanelLeft, X } from 'lucide-react'
+import { LayoutDashboard, Layers, Database, Zap, PanelLeft, X, GitBranch } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/templates', icon: Layers, label: 'Swarms' },
+  { to: '/flow', icon: GitBranch, label: 'Flow' },
   { to: '/runs', icon: Database, label: 'Observe' },
   { to: '/test-runs', icon: Zap, label: 'Test Runs' },
   // { to: '/execution-mesh', icon: Network, label: 'Execution Mesh' },
