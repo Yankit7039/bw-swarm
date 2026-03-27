@@ -120,6 +120,8 @@ def get_ticket(order_id: str) -> dict:
     status_lower = status_out.strip().lower() if isinstance(status_out, str) else ""
 
     raw_desc = fields.get("description")
+    labels_raw = fields.get("labels") or []
+    labels_out = [x for x in labels_raw if isinstance(x, str)] if isinstance(labels_raw, list) else []
     payload = {
         "key": data.get("key") or issue_key,
         "title": fields.get("summary"),
@@ -127,6 +129,8 @@ def get_ticket(order_id: str) -> dict:
         "status_lower": status_lower,
         "description": raw_desc,
         "description_plain": _description_plain(raw_desc),
+        # Exposed for network-ops-l1l2-triage (L1 domain label validation)
+        "labels": labels_out,
     }
 
     return AdapterResponse(meta=ToolMeta(**tool_meta("jira", "get_ticket")), data=payload).model_dump()

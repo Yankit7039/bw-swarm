@@ -90,22 +90,45 @@ def transition_ticket(order_id: str, target_status: str) -> dict:
             data={"success": False, "reason": "invalid transitions response"},
         ).model_dump()
 
-    transitions = body.get("transitions") or []
+    transitions = [t for t in (body.get("transitions") or []) if isinstance(t, dict)]
     names: list[str] = []
     transition_id: str | None = None
+
     for t in transitions:
-        if not isinstance(t, dict):
-            continue
         name = t.get("name")
-        tid = t.get("id")
         if isinstance(name, str):
             names.append(name)
+            tid = t.get("id")
             if name.strip().lower() == want:
                 transition_id = str(tid) if tid is not None else None
+                break
 
     if not transition_id:
-        avail = ", ".join(names) if names else "(none)"
-        reason = f'no transition named "{target_status}"; available: {avail}'
+        for t in transitions:
+            to = t.get("to")
+            if not isinstance(to, dict):
+                continue
+            to_name = to.get("name")
+            tid = t.get("id")
+            if isinstance(to_name, str) and to_name.strip().lower() == want:
+                transition_id = str(tid) if tid is not None else None
+                break
+
+    if not transition_id:
+        hints: list[str] = []
+        for t in transitions:
+            n = t.get("name")
+            to = t.get("to")
+            dest = to.get("name") if isinstance(to, dict) else None
+            if isinstance(n, str) and isinstance(dest, str):
+                hints.append(f"{n} → {dest}")
+            elif isinstance(n, str):
+                hints.append(n)
+        avail = ", ".join(hints) if hints else ("; ".join(names) if names else "(none)")
+        reason = (
+            f'no transition or destination status matching "{target_status}"; '
+            f"available: {avail}"
+        )
         return AdapterResponse(
             meta=ToolMeta(**tool_meta("jira", "transition_ticket")),
             data={"success": False, "reason": reason},
