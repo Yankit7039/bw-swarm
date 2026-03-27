@@ -5,6 +5,7 @@ import {
   FLOW_NODE_PALETTE_SIZE,
   NODE_PREFIX,
   type ActiveRunDot,
+  type PipelineLogTickerRow,
   type PipelineNodeData,
 } from '../utils/buildGraphFromYaml'
 
@@ -20,12 +21,15 @@ export const PipelineNode = memo(function PipelineNode(props: NodeProps) {
   const isMainStage = !isSynth
 
   const fillClass = `flow-node--fill-${(data.fillIndex ?? 0) % FLOW_NODE_PALETTE_SIZE}`
+  const tickerRows = data.logTickerRows ?? []
+  const hasFlowLogRows = tickerRows.length > 0
 
   return (
     <div
       className={clsx(
         'flow-pipeline-node',
         isSynth && 'flow-pipeline-node--synthetic',
+        hasFlowLogRows && 'flow-pipeline-node--flow-logs',
         fillClass
       )}
     >
@@ -76,7 +80,32 @@ export const PipelineNode = memo(function PipelineNode(props: NodeProps) {
             ))
           )}
         </div>
-        {data.logTicker?.text ? (
+        {hasFlowLogRows ? (
+          <div className="flow-pipeline-node__ticker-stack" aria-label="Run logs">
+            {tickerRows.map((row: PipelineLogTickerRow, idx: number) => (
+              <div
+                key={row.animKey}
+                className={clsx(
+                  'flow-pipeline-node__ticker-row',
+                  row.dimmed && 'flow-pipeline-node__ticker-row--dimmed',
+                  row.tone === 'error' && 'flow-pipeline-node__ticker-row--error',
+                  row.tone === 'success' && 'flow-pipeline-node__ticker-row--success',
+                )}
+                style={{ animationDelay: `${idx * 35}ms` }}
+              >
+                <span className="flow-pipeline-node__ticker-order">{row.orderId}</span>
+                <div className="flow-pipeline-node__ticker-row-text">
+                  <div className="flow-pipeline-node__ticker-line flow-pipeline-node__ticker-line--primary">
+                    {row.primary}
+                  </div>
+                  <div className="flow-pipeline-node__ticker-line flow-pipeline-node__ticker-line--secondary">
+                    {row.secondary}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : data.logTicker?.text ? (
           <div
             className={clsx(
               'flow-pipeline-node__ticker',

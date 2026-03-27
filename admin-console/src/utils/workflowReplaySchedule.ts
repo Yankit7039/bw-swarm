@@ -40,7 +40,15 @@ export interface ReplaySample {
   edgeAnim: { from: string; to: string; t: number } | null
   tickerByNode: Map<
     string,
-    { text: string; tone: LogTone; animKey: string; dimmed: boolean; lineIndex: number }
+    {
+      text: string
+      tone: LogTone
+      animKey: string
+      dimmed: boolean
+      lineIndex: number
+      /** Present when replay row should split into two-line ticker (Flow page). */
+      sourceEvent?: MappedRunEvent
+    }
   >
   /** Last mapped line per node for static hold after replay. */
   lastLineByNode: Map<string, { text: string; tone: LogTone; animKey: string }>
@@ -142,7 +150,14 @@ export function sampleWorkflowReplay(
   const lastLineByNode = lastLineByNodeMap(byNode)
   const tickerByNode = new Map<
     string,
-    { text: string; tone: LogTone; animKey: string; dimmed: boolean; lineIndex: number }
+    {
+      text: string
+      tone: LogTone
+      animKey: string
+      dimmed: boolean
+      lineIndex: number
+      sourceEvent?: MappedRunEvent
+    }
   >()
 
   let logicalNodeId: string | null = null
@@ -170,6 +185,7 @@ export function sampleWorkflowReplay(
         animKey: key,
         dimmed: false,
         lineIndex: pick.idx,
+        sourceEvent: pick.ev,
       })
     }
     break
@@ -185,7 +201,14 @@ export function staticTickerSample(byNode: Map<string, MappedRunEvent[]>): Repla
   const lastLineByNode = lastLineByNodeMap(byNode)
   const tickerByNode = new Map<
     string,
-    { text: string; tone: LogTone; animKey: string; dimmed: boolean; lineIndex: number }
+    {
+      text: string
+      tone: LogTone
+      animKey: string
+      dimmed: boolean
+      lineIndex: number
+      sourceEvent?: MappedRunEvent
+    }
   >()
   let best: { nodeId: string; ev: MappedRunEvent } | null = null
   for (const [nodeId, list] of byNode) {
@@ -201,6 +224,7 @@ export function staticTickerSample(byNode: Map<string, MappedRunEvent[]>): Repla
       animKey: `${ev.id ?? `${ev.created_at}:${ev.event_type}`}:static`,
       dimmed: false,
       lineIndex: -1,
+      sourceEvent: ev,
     })
   }
   return {

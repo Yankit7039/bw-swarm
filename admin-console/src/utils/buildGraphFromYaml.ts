@@ -36,6 +36,16 @@ export type PipelineLogTicker = {
   dimmed?: boolean
 }
 
+/** Multi-order log strip on Flow page (two lines + order chip per row). */
+export type PipelineLogTickerRow = {
+  orderId: string
+  primary: string
+  secondary: string
+  tone: LogTone
+  animKey: string
+  dimmed?: boolean
+}
+
 export type PipelineNodeData = {
   kind: 'synthetic' | 'stage'
   label: string
@@ -45,6 +55,7 @@ export type PipelineNodeData = {
   isLoop?: boolean
   activeRuns?: ActiveRunDot[]
   logTicker?: PipelineLogTicker | null
+  logTickerRows?: PipelineLogTickerRow[]
 } & Record<string, unknown>
 
 export function isLoopStage(stage: Record<string, unknown>): boolean {

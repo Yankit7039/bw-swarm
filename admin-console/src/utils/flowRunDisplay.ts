@@ -21,6 +21,18 @@ export const REPLAY_TOTAL_CAP_MS = 90_000
 /** Minimum dwell on a pipeline stage during replay when it has no log lines. */
 export const REPLAY_MIN_STAGE_DWELL_MS = 2200
 
+/** Delay between starting each run’s timeline on the Flow page multi-replay. */
+export const FLOW_MULTI_REPLAY_STAGGER_MS = 3200
+
+/** Max wall-clock duration for the full Flow multi-replay (compresses logical time if needed). */
+export const FLOW_MULTI_REPLAY_CAP_MS = 120_000
+
+/** Max log ticker rows per pipeline node on the Flow page. */
+export const FLOW_MAX_TICKER_ROWS_PER_NODE = 6
+
+/** Number of most recent finished runs to include in Flow replay. */
+export const FLOW_REPLAY_RUN_LIMIT = 10
+
 export function parseAnchorTime(run: Run, firstSeenAtMs?: number): number {
   if (firstSeenAtMs != null) return firstSeenAtMs
   if (run.created_at) {

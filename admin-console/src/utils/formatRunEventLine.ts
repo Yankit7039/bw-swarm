@@ -56,3 +56,31 @@ export function formatRunEventLine(e: RunEventLineInput, maxLen = 96): string {
   if (line.length <= maxLen) return line
   return `${line.slice(0, maxLen - 1)}…`
 }
+
+function formatTickerTime(iso: string | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+}
+
+function shortEventTypeLabel(eventType: string): string {
+  const t = (eventType || 'event').trim()
+  if (!t) return 'event'
+  const leaf = t.includes('.') ? t.slice(t.lastIndexOf('.') + 1) : t
+  return leaf.replace(/_/g, ' ')
+}
+
+/**
+ * Two-line ticker: compact type + time, then full summary (Flow page multi-order logs).
+ */
+export function splitTickerLines(input: RunEventLineInput & { created_at?: string }): {
+  primary: string
+  secondary: string
+} {
+  const time = formatTickerTime(input.created_at)
+  const typeLabel = shortEventTypeLabel(input.event_type)
+  const primary = [typeLabel, time].filter(Boolean).join(' · ') || typeLabel
+  const secondary = formatRunEventLine(input, 140)
+  return { primary, secondary }
+}

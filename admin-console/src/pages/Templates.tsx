@@ -21,7 +21,6 @@ interface TemplateCardProps {
   icon: React.ReactNode
   iconBg: string
   iconColor: string
-  runsCount: string
   lastUsed: string
   agentColors: string[]
 }
@@ -33,7 +32,6 @@ const TemplateCard = ({
   icon,
   iconBg,
   iconColor,
-  runsCount,
   lastUsed: _lastUsed,
   agentColors: _agentColors,
 }: TemplateCardProps) => {
@@ -42,13 +40,9 @@ const TemplateCard = ({
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group overflow-hidden flex flex-col">
       <div className="p-5 flex flex-col h-full">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start mb-4">
           <div className={`h-10 w-10 ${iconBg} rounded-lg flex items-center justify-center ${iconColor}`}>
             {icon}
-          </div>
-          <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded text-[10px] font-bold text-slate-500">
-            <TrendingUp className="w-3 h-3" />
-            <span>{runsCount} runs this week</span>
           </div>
         </div>
         <h4 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors">{name}</h4>
@@ -93,7 +87,6 @@ export const Templates = () => {
       icon: <Headphones className="w-5 h-5" />,
       iconBg: 'bg-blue-100',
       iconColor: 'text-blue-600',
-      runsCount: '248',
       lastUsed: '2h ago',
       agentColors: ['bg-slate-300', 'bg-slate-400', 'bg-slate-500'],
       description: 'Coordinate multiple specialized agents to handle customer tickets across email, chat, and social media.',
@@ -102,7 +95,6 @@ export const Templates = () => {
       icon: <DatabaseIcon className="w-5 h-5" />,
       iconBg: 'bg-emerald-100',
       iconColor: 'text-emerald-600',
-      runsCount: '156',
       lastUsed: 'Yesterday',
       agentColors: ['bg-emerald-300', 'bg-emerald-500'],
       description: 'Automatically parse and extract structured data from PDF invoices and update accounting systems.',
@@ -111,7 +103,6 @@ export const Templates = () => {
       icon: <UserPlus className="w-5 h-5" />,
       iconBg: 'bg-purple-100',
       iconColor: 'text-purple-600',
-      runsCount: '42',
       lastUsed: '4 days ago',
       agentColors: ['bg-purple-300', 'bg-purple-500', 'bg-purple-700'],
       description: 'Provision accounts, schedule intro meetings, and send welcome packages via coordinated agents.',
@@ -120,7 +111,6 @@ export const Templates = () => {
       icon: <TrendingUp className="w-5 h-5" />,
       iconBg: 'bg-amber-100',
       iconColor: 'text-amber-600',
-      runsCount: '12',
       lastUsed: 'Never',
       agentColors: ['bg-amber-400'],
       description: 'Synthesize news, social trends, and financial reports into actionable daily briefings.',
@@ -136,7 +126,6 @@ export const Templates = () => {
       icon: config.icon || <LayoutTemplate className="w-5 h-5" />,
       iconBg: config.iconBg || 'bg-slate-100',
       iconColor: config.iconColor || 'text-slate-600',
-      runsCount: config.runsCount || '0',
       lastUsed: config.lastUsed || 'Never',
       agentColors: config.agentColors || ['bg-slate-300'],
     }
@@ -148,7 +137,7 @@ export const Templates = () => {
         {/* Content Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
           <div className="space-y-1">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Agent Workflows</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Swarm Workflows</h1>
             <p className="text-slate-500 text-base">Browse and deploy pre-configured multi-agent orchestration templates.</p>
           </div>
           <div className="flex items-center gap-3">
@@ -178,7 +167,7 @@ export const Templates = () => {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 pb-4">
-          {['all', 'popular', 'recent', 'community'].map((f) => (
+          {['all', 'recent'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -189,9 +178,7 @@ export const Templates = () => {
               }`}
             >
               {f === 'all' && 'All Templates'}
-              {f === 'popular' && 'Most Popular'}
               {f === 'recent' && 'Recently Used'}
-              {f === 'community' && 'Community Favorites'}
             </button>
           ))}
         </div>

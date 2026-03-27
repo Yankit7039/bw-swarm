@@ -12,17 +12,24 @@ import {
   type Edge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { Play, RotateCcw, X } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { PipelineEdge, type PipelineEdgeData } from '../components/PipelineEdge'
 import { PipelineNode } from '../components/PipelineNode'
 import type { ActiveRunDot } from '../utils/buildGraphFromYaml'
 import { useTemplates } from '../hooks/useTemplates'
-import { buildGraphFromYaml, extractStageMeta, type PipelineNodeData } from '../utils/buildGraphFromYaml'
+import {
+  buildGraphFromYaml,
+  extractStageMeta,
+  type PipelineLogTickerRow,
+  type PipelineNodeData,
+} from '../utils/buildGraphFromYaml'
 import {
   COMPLETED_DWELL_MS,
   computeLogicalNodeId,
   EDGE_TRAVEL_MS,
   findEdgeBetween,
+  FLOW_MULTI_REPLAY_STAGGER_MS,
 } from '../utils/flowRunDisplay'
 import {
   fetchRunEvents,
@@ -30,13 +37,27 @@ import {
   fetchTemplateDetailYaml,
   parseTemplateYaml,
   templatesWithYaml,
+  type FlowRunEvent,
 } from '../utils/flowApi'
 import type { Run } from '../types/common'
 import './FlowPage.css'
 import { runPayloadPrimaryRef } from '../utils/runPayloadLabel'
+import {
+  buildLiveLogTickerRowsByNode,
+  buildRunReplayBundle,
+  defaultMultiReplayTiming,
+  pickReplayRuns,
+  sampleMultiReplayAt,
+} from '../utils/flowMultiReplay'
 
 const nodeTypes = { pipeline: PipelineNode }
 const edgeTypes = { pipeline: PipelineEdge }
+
+const emptyMultiSample = () => ({
+  runToNodeDots: new Map<string, ActiveRunDot[]>(),
+  edgeDotsByEdgeId: new Map<string, NonNullable<PipelineEdgeData['dots']>>(),
+  logTickerRowsByNode: new Map<string, PipelineLogTickerRow[]>(),
+})
 
 function dotLabelFromRun(run: Run): string {
   return runPayloadPrimaryRef(run.payload as Record<string, unknown>) || run.run_id.slice(0, 8)
@@ -187,32 +208,32 @@ export function FlowPage() {
     return () => clearInterval(id)
   }, [displayRuns.length])
 
-  const eventQueries = useQueries({
-    queries: activeRuns.map((r) => ({
+  const displayRunEventQueries = useQueries({
+    queries: displayRuns.map((r) => ({
       queryKey: ['flow-run-events', r.run_id],
       queryFn: () => fetchRunEvents(r.run_id),
-      enabled: !!selectedId && !!parsed && activeRuns.length > 0,
+      enabled: !!selectedId && !!parsed && displayRuns.length > 0,
       refetchInterval: 3000,
     })),
   })
 
-  const activeRunIndexById = useMemo(() => {
+  const displayRunIndexById = useMemo(() => {
     const m = new Map<string, number>()
-    activeRuns.forEach((r, i) => m.set(r.run_id, i))
+    displayRuns.forEach((r, i) => m.set(r.run_id, i))
     return m
-  }, [activeRuns])
+  }, [displayRuns])
 
   const logicalNodeByRun = useMemo(() => {
     const m = new Map<string, string | null>()
     const now = Date.now()
     for (const r of displayRuns) {
-      const idx = activeRunIndexById.get(r.run_id)
-      const evs = idx !== undefined ? eventQueries[idx]?.data ?? [] : []
+      const idx = displayRunIndexById.get(r.run_id)
+      const evs = idx !== undefined ? displayRunEventQueries[idx]?.data ?? [] : []
       const fs = firstSeenRef.current.get(r.run_id)
       m.set(r.run_id, computeLogicalNodeId(r, evs, stageMeta, now, fs))
     }
     return m
-  }, [displayRuns, stageMeta, eventQueries, firstSeenVersion, tick, activeRunIndexById])
+  }, [displayRuns, stageMeta, displayRunEventQueries, firstSeenVersion, tick, displayRunIndexById])
 
   const logicalKey = useMemo(
     () =>
@@ -227,7 +248,125 @@ export function FlowPage() {
   const animRef = useRef<Map<string, { from: string; to: string; start: number }>>(new Map())
   const [animPulse, setAnimPulse] = useState(0)
 
+  const [multiReplayRuns, setMultiReplayRuns] = useState<Run[] | null>(null)
+  const [replayDone, setReplayDone] = useState(false)
+  const [replaySessionKey, setReplaySessionKey] = useState(0)
+  const replayMsRef = useRef(0)
+  const [replayPulse, setReplayPulse] = useState(0)
+
+  useEffect(() => {
+    setMultiReplayRuns(null)
+    setReplayDone(false)
+  }, [selectedId])
+
+  const replayEventQueries = useQueries({
+    queries: (multiReplayRuns ?? []).map((r) => ({
+      queryKey: ['flow-multi-replay-events', r.run_id],
+      queryFn: () => fetchRunEvents(r.run_id),
+      enabled: !!multiReplayRuns && multiReplayRuns.length > 0,
+      staleTime: 60_000,
+    })),
+  })
+
+  const replayFetchKey =
+    multiReplayRuns
+      ?.map((r, i) => `${r.run_id}:${replayEventQueries[i]?.fetchStatus}:${replayEventQueries[i]?.dataUpdatedAt}`)
+      .join('|') ?? ''
+
+  const replayBundles = useMemo(() => {
+    if (!multiReplayRuns?.length) return []
+    for (let i = 0; i < multiReplayRuns.length; i++) {
+      if (!replayEventQueries[i]?.isFetched) return []
+    }
+    return multiReplayRuns.map((r, i) =>
+      buildRunReplayBundle(r, replayEventQueries[i]?.data ?? [], stageMeta.all, dotLabelFromRun(r))
+    )
+  }, [multiReplayRuns, stageMeta.all, replayFetchKey])
+
+  const runsById = useMemo(() => {
+    const m = new Map<string, Run>()
+    multiReplayRuns?.forEach((r) => m.set(r.run_id, r))
+    return m
+  }, [multiReplayRuns])
+
+  const multiSample = useMemo(() => {
+    if (!multiReplayRuns?.length || replayBundles.length === 0) return emptyMultiSample()
+    const logicalMs = defaultMultiReplayTiming(replayBundles).toLogicalMs(replayMsRef.current)
+    return sampleMultiReplayAt(
+      replayBundles,
+      runsById,
+      logicalMs,
+      FLOW_MULTI_REPLAY_STAGGER_MS,
+      baseEdges
+    )
+  }, [multiReplayRuns, replayBundles, runsById, baseEdges, replayPulse])
+
+  useEffect(() => {
+    if (!multiReplayRuns?.length || replayBundles.length === 0 || replayDone) return undefined
+    let cancelled = false
+    replayMsRef.current = 0
+    const { playbackDurationMs } = defaultMultiReplayTiming(replayBundles)
+    const t0 = performance.now()
+    const frame = (now: number) => {
+      if (cancelled) return
+      const elapsed = now - t0
+      replayMsRef.current = Math.min(playbackDurationMs, elapsed)
+      setReplayPulse((x) => x + 1)
+      if (elapsed < playbackDurationMs) {
+        requestAnimationFrame(frame)
+      } else {
+        setReplayDone(true)
+      }
+    }
+    const raf = requestAnimationFrame(frame)
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+    }
+  }, [multiReplayRuns, replayBundles, replayDone, replaySessionKey])
+
+  const replayCandidates = useMemo(() => pickReplayRuns(runsRaw), [runsRaw])
+
+  const startMultiReplay = useCallback(() => {
+    const picked = pickReplayRuns(runsRaw)
+    if (picked.length === 0) return
+    setReplayDone(false)
+    setMultiReplayRuns(picked)
+    setReplaySessionKey((k) => k + 1)
+  }, [runsRaw])
+
+  const replayAgain = useCallback(() => {
+    setReplayDone(false)
+    setReplaySessionKey((k) => k + 1)
+  }, [])
+
+  const exitMultiReplay = useCallback(() => {
+    setMultiReplayRuns(null)
+    setReplayDone(false)
+  }, [])
+
+  const replayEventsLoading =
+    !!multiReplayRuns?.length && replayBundles.length === 0 && replayEventQueries.some((q) => q.isLoading)
+
+  const eventDataKey = displayRuns
+    .map((r, i) => `${r.run_id}:${displayRunEventQueries[i]?.dataUpdatedAt ?? 0}`)
+    .join('|')
+
+  const eventsByRunId = useMemo(() => {
+    const m = new Map<string, FlowRunEvent[]>()
+    displayRuns.forEach((r, i) => {
+      m.set(r.run_id, displayRunEventQueries[i]?.data ?? [])
+    })
+    return m
+  }, [displayRuns, eventDataKey])
+
+  const liveLogTickerRowsByNode = useMemo(() => {
+    if (multiReplayRuns) return new Map<string, PipelineLogTickerRow[]>()
+    return buildLiveLogTickerRowsByNode(displayRuns, logicalNodeByRun, eventsByRunId, dotLabelFromRun)
+  }, [multiReplayRuns, displayRuns, logicalNodeByRun, eventsByRunId])
+
   useLayoutEffect(() => {
+    if (multiReplayRuns) return
     let started = false
     for (const [runId, nodeId] of logicalNodeByRun) {
       if (!nodeId) continue
@@ -242,10 +381,10 @@ export function FlowPage() {
       if (!logicalNodeByRun.has(k)) prevLogicalRef.current.delete(k)
     }
     if (started) setAnimPulse((x) => x + 1)
-  }, [logicalKey, logicalNodeByRun])
+  }, [multiReplayRuns, logicalKey, logicalNodeByRun])
 
   useEffect(() => {
-    if (displayRuns.length === 0) return
+    if (displayRuns.length === 0 || multiReplayRuns) return
     let cancelled = false
     let raf = 0
     const loop = () => {
@@ -265,9 +404,22 @@ export function FlowPage() {
       cancelled = true
       cancelAnimationFrame(raf)
     }
-  }, [displayRuns.length, logicalKey])
+  }, [displayRuns.length, logicalKey, multiReplayRuns])
 
   const { runToNodeDots, edgeDotsByEdgeId } = useMemo(() => {
+    if (multiReplayRuns?.length) {
+      if (replayBundles.length > 0) {
+        return {
+          runToNodeDots: multiSample.runToNodeDots,
+          edgeDotsByEdgeId: multiSample.edgeDotsByEdgeId,
+        }
+      }
+      return {
+        runToNodeDots: new Map<string, ActiveRunDot[]>(),
+        edgeDotsByEdgeId: new Map<string, NonNullable<PipelineEdgeData['dots']>>(),
+      }
+    }
+
     const byNode = new Map<string, ActiveRunDot[]>()
     const edgeMap = new Map<string, NonNullable<PipelineEdgeData['dots']>>()
     const now = Date.now()
@@ -304,7 +456,19 @@ export function FlowPage() {
     }
 
     return { runToNodeDots: byNode, edgeDotsByEdgeId: edgeMap }
-  }, [displayRuns, logicalNodeByRun, baseEdges, logicalKey, tick, animPulse])
+  }, [
+    multiReplayRuns,
+    replayBundles,
+    multiSample,
+    displayRuns,
+    logicalNodeByRun,
+    baseEdges,
+    logicalKey,
+    tick,
+    animPulse,
+  ])
+
+  const logTickerRowsByNode = multiReplayRuns ? multiSample.logTickerRowsByNode : liveLogTickerRowsByNode
 
   const edgesWithDots = useMemo(
     () =>
@@ -319,11 +483,21 @@ export function FlowPage() {
   const nodesWithDots = useMemo(
     () =>
       baseNodes.map((n) => {
+        const next: PipelineNodeData = { ...n.data }
+        delete next.logTicker
+        delete next.logTickerRows
+
         const extra = runToNodeDots.get(n.id)
-        if (!extra?.length) return { ...n, data: { ...n.data } }
-        return { ...n, data: { ...n.data, activeRuns: extra } }
+        const rows = logTickerRowsByNode.get(n.id)
+
+        if (extra?.length) next.activeRuns = extra
+        else delete next.activeRuns
+
+        if (rows?.length) next.logTickerRows = rows
+
+        return { ...n, data: next }
       }),
-    [baseNodes, runToNodeDots]
+    [baseNodes, runToNodeDots, logTickerRowsByNode]
   )
 
   const lastPoll = useMemo(() => {
@@ -338,25 +512,70 @@ export function FlowPage() {
   return (
     <Layout>
       <div className="flow-page">
-        <div className="flow-page__toolbar">
-          <label htmlFor="flow-template-select">Template</label>
-          <select
-            id="flow-template-select"
-            className="flow-page__select"
-            value={selectedId}
-            onChange={onTemplateChange}
-            disabled={templatesLoading || withYaml.length === 0}
-          >
-            {withYaml.length === 0 ? (
-              <option value="">No templates with YAML</option>
+        <div className="flow-page__toolbar flow-page__toolbar--split">
+          <div className="flow-page__toolbar-left">
+            <label htmlFor="flow-template-select">Template</label>
+            <select
+              id="flow-template-select"
+              className="flow-page__select"
+              value={selectedId}
+              onChange={onTemplateChange}
+              disabled={templatesLoading || withYaml.length === 0}
+            >
+              {withYaml.length === 0 ? (
+                <option value="">No templates with YAML</option>
+              ) : (
+                withYaml.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+          <div className="flow-page__toolbar-replay">
+            {!multiReplayRuns ? (
+              <div className="flow-page__replay-actions">
+                <button
+                  type="button"
+                  className="flow-page__replay-btn"
+                  disabled={
+                    !parsed || templatesLoading || replayCandidates.length === 0 || replayEventsLoading
+                  }
+                  onClick={startMultiReplay}
+                  title="Replay the last finished runs on this template using stored events (staggered)."
+                >
+                  <Play className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
+                  Replay last {replayCandidates.length > 0 ? Math.min(replayCandidates.length, 10) : 10}
+                </button>
+              </div>
             ) : (
-              withYaml.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))
+              <div className="flow-page__replay-actions flow-page__replay-actions--active">
+                {replayEventsLoading ? (
+                  <span className="flow-page__replay-loading">Loading replay…</span>
+                ) : replayDone ? (
+                  <>
+                    <button type="button" className="flow-page__replay-btn" onClick={replayAgain}>
+                      <RotateCcw className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
+                      Play again
+                    </button>
+                    <button type="button" className="flow-page__replay-btn flow-page__replay-btn--ghost" onClick={exitMultiReplay}>
+                      <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
+                      Exit replay
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flow-page__replay-live">Replaying…</span>
+                    <button type="button" className="flow-page__replay-btn flow-page__replay-btn--ghost" onClick={exitMultiReplay}>
+                      <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
+                      Exit
+                    </button>
+                  </>
+                )}
+              </div>
             )}
-          </select>
+          </div>
         </div>
 
         <div className="flow-page__canvas-wrap">
@@ -393,6 +612,9 @@ export function FlowPage() {
             Active runs: <strong>{activeRuns.length}</strong>
             {selectedId && runsRaw.length > 0 && (
               <span className="text-slate-400"> · {runsRaw.length} total fetched</span>
+            )}
+            {multiReplayRuns && (
+              <span className="text-slate-400"> · Replay mode ({multiReplayRuns.length} orders)</span>
             )}
           </span>
           <span>
