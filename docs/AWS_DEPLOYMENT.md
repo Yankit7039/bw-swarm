@@ -96,7 +96,7 @@ This will deploy:
 
 `agentmail_api_key` and `agentmail_inbox_id` are stored in Secrets Manager with `openrouter_api_key` and synced to the `adk-secrets` Kubernetes secret. Use `REPLACE_ME` placeholders if AgentMail is not configured yet (the adapter will mock email sends).
 
-`jira_email`, `jira_api_token`, and `jira_base` are also stored in the same secret (keys `jira-email`, `jira-api-token`, `jira-base`) for the adapter’s Jira MCP tools used by the ticket-email-routing template.
+`jira_email`, `jira_api_token`, and `jira_base` are also stored in the same secret (keys `jira-email`, `jira-api-token`, `jira-base`) for the adapter’s Jira MCP tools used by the `ticket-email-routing` and `network-ops-l1l2-triage` templates.
 
 #### PowerShell
 
@@ -241,6 +241,10 @@ aws ecr get-login-password --region ap-southeast-1 \
 | Admin API       | `./admin-api`           | `swarm-admin-api`  |
 | Adapter         | `./adapter`             | `swarm-adapter`    |
 | Stuck-order ADK | `./templates/stuck-order-adk` | `stuck-order-adk` |
+| eSIM ADK | `./templates/esim-activation-resolution` | `esim-activation-adk` |
+| Number porting ADK | `./templates/number-porting-resolution` | `number-porting-adk` |
+| Ticket email routing ADK | `./templates/ticket-email-routing` | `ticket-email-routing-adk` |
+| Network ops L1/L2 triage ADK | `./templates/network-ops-l1l2-triage` | `network-ops-l1l2-triage-adk` |
 
 ### 5.3 Example: build & push **runtime**
 
@@ -380,6 +384,10 @@ kubectl apply -f infra/k8s-aws/adapter-deployment.yaml
 kubectl apply -f infra/k8s-aws/runtime-deployment.yaml
 kubectl apply -f infra/k8s-aws/admin-api-deployment.yaml
 kubectl apply -f infra/k8s-aws/warmpool-stuck-order-adk.yaml
+kubectl apply -f infra/k8s-aws/warmpool-esim-activation-adk.yaml
+kubectl apply -f infra/k8s-aws/warmpool-number-porting-adk.yaml
+kubectl apply -f infra/k8s-aws/warmpool-ticket-email-routing-adk.yaml
+kubectl apply -f infra/k8s-aws/warmpool-network-ops-l1l2-triage-adk.yaml
 # Skip: kubectl apply -f infra/k8s-aws/ingress.yaml
 # Skip: kubectl apply -f infra/k8s-aws/ingress-admin.yaml
 ```

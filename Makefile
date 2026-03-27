@@ -36,7 +36,8 @@ IMAGES = \
   stuck-order-adk:templates/stuck-order-adk:templates/stuck-order-adk/Dockerfile \
   esim-activation-adk:templates/esim-activation-resolution:templates/esim-activation-resolution/Dockerfile \
   number-porting-adk:templates/number-porting-resolution:templates/number-porting-resolution/Dockerfile \
-  ticket-email-routing-adk:templates/ticket-email-routing:templates/ticket-email-routing/Dockerfile
+  ticket-email-routing-adk:templates/ticket-email-routing:templates/ticket-email-routing/Dockerfile \
+  network-ops-l1l2-triage-adk:templates/network-ops-l1l2-triage:templates/network-ops-l1l2-triage/Dockerfile
 
 # ── K8s manifests in apply order ─────────────────────────────────────────────
 K8S_MANIFESTS = \
@@ -49,7 +50,8 @@ K8S_MANIFESTS = \
   infra/k8s-aws/warmpool-stuck-order-adk.yaml \
   infra/k8s-aws/warmpool-esim-activation-adk.yaml \
   infra/k8s-aws/warmpool-number-porting-adk.yaml \
-  infra/k8s-aws/warmpool-ticket-email-routing-adk.yaml
+  infra/k8s-aws/warmpool-ticket-email-routing-adk.yaml \
+  infra/k8s-aws/warmpool-network-ops-l1l2-triage-adk.yaml
 
 # =============================================================================
 # PUBLIC TARGETS
@@ -131,6 +133,7 @@ _k8s-apply:
 	$(eval ECR_ADK          := $(ECR_BASE)/$(ECR_PREFIX)stuck-order-adk:latest)
 	$(eval ECR_ESIM_ADK     := $(ECR_BASE)/$(ECR_PREFIX)esim-activation-adk:latest)
 	$(eval ECR_NUMBER_ADK   := $(ECR_BASE)/$(ECR_PREFIX)number-porting-adk:latest)
+	$(eval ECR_NETWORK_OPS_ADK := $(ECR_BASE)/$(ECR_PREFIX)network-ops-l1l2-triage-adk:latest)
 	@echo "  --> Applying agent-sandbox CRDs"
 	kubectl apply -f infra/k8s-aws/agent-sandbox-manifest.yaml
 	kubectl apply -f infra/k8s-aws/agent-sandbox-extensions.yaml
@@ -149,6 +152,7 @@ _k8s-apply:
 	    -e 's|$(ECR_BASE)/stuck-order-adk:latest|$(ECR_ADK)|g' \
 	    -e 's|$(ECR_BASE)/esim-activation-adk:latest|$(ECR_ESIM_ADK)|g' \
 	    -e 's|$(ECR_BASE)/number-porting-adk:latest|$(ECR_NUMBER_ADK)|g' \
+	    -e 's|$(ECR_BASE)/network-ops-l1l2-triage-adk:latest|$(ECR_NETWORK_OPS_ADK)|g' \
 	    -e 's|REPLACE_WITH_SECRET_NAME|$(SECRET_NAME)|g' \
 	    $$f | kubectl apply -f -; \
 	done

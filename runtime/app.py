@@ -35,6 +35,7 @@ LOG = logging.getLogger(__name__)
 
 JIRA_ISSUE_CREATED = "jira:issue_created"
 TICKET_EMAIL_ROUTING_TEMPLATE = "ticket-email-routing"
+NETWORK_OPS_L1L2_TRIAGE_TEMPLATE = "network-ops-l1l2-triage"
 
 app = FastAPI(
     title="Runtime",
@@ -138,23 +139,30 @@ async def _jira_webhook_task(order_id: str | None, body: dict) -> None:
         LOG.warning("Jira webhook: missing or empty order_id query param")
         return
     order_id = str(order_id).strip()
-    template = await get_template(TICKET_EMAIL_ROUTING_TEMPLATE)
+
+    if order_id.upper().startswith("NET"):
+        template_id = NETWORK_OPS_L1L2_TRIAGE_TEMPLATE
+        payload = {"ticket_id": order_id}
+    else:
+        template_id = TICKET_EMAIL_ROUTING_TEMPLATE
+        payload = {"order_id": order_id}
+
+    template = await get_template(template_id)
     if not template:
-        LOG.error("Jira webhook: template %s not found", TICKET_EMAIL_ROUTING_TEMPLATE)
+        LOG.error("Jira webhook: template %s not found", template_id)
         return
-    LOG.info("Jira webhook received for %s, triggering ticket-email-routing run", order_id)
+    LOG.info("Jira webhook received for %s, triggering %s run", order_id, template_id)
     run_id = uuid.uuid4()
-    payload = {"order_id": order_id}
-    await create_run(run_id, TICKET_EMAIL_ROUTING_TEMPLATE, payload)
+    await create_run(run_id, template_id, payload)
     await insert_run_event(
         run_id,
         "jira_webhook",
         f"Run triggered from Jira issue {order_id} (Jira webhook).",
-        {"order_id": order_id, "source": "jira_webhook"},
+        {"order_id": order_id, "template_id": template_id, "source": "jira_webhook"},
     )
     from runtime.sandbox_trigger import trigger_run
 
-    await trigger_run(run_id, TICKET_EMAIL_ROUTING_TEMPLATE, payload)
+    await trigger_run(run_id, template_id, payload)
 
 
 def _verify_svix_signature(

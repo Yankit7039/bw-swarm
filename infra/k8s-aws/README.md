@@ -36,6 +36,7 @@ kubectl apply -f infra/k8s-aws/warmpool-stuck-order-adk.yaml
 kubectl apply -f infra/k8s-aws/warmpool-esim-activation-adk.yaml
 kubectl apply -f infra/k8s-aws/warmpool-number-porting-adk.yaml
 kubectl apply -f infra/k8s-aws/warmpool-ticket-email-routing-adk.yaml
+kubectl apply -f infra/k8s-aws/warmpool-network-ops-l1l2-triage-adk.yaml
 kubectl apply -f infra/k8s-aws/ingress.yaml
 kubectl apply -f infra/k8s-aws/ingress-admin.yaml
 ```
@@ -45,7 +46,7 @@ If the CRD names change in a newer agent-sandbox release, replace the `kubectl w
 ### Notes
 
 - **Database**: Postgres runs in **RDS**, not in-cluster. The `DATABASE_URL` comes from the `adk-secrets` Kubernetes secret.
-- **Secrets**: `adk-secrets` is created by External Secrets Operator from AWS Secrets Manager via `infra/k8s-aws/external-secret.yaml`. It includes `database-url`, `openrouter-api-key`, and (when set in Terraform) `agentmail-api-key` / `agentmail-inbox-id` for the adapter’s AgentMail MCP tool, plus `jira-email` / `jira-api-token` / `jira-base` for the Jira MCP tools (`jira__get_ticket`, `jira__transition_ticket`) used by ticket-email-routing.
+- **Secrets**: `adk-secrets` is created by External Secrets Operator from AWS Secrets Manager via `infra/k8s-aws/external-secret.yaml`. It includes `database-url`, `openrouter-api-key`, and (when set in Terraform) `agentmail-api-key` / `agentmail-inbox-id` for the adapter’s AgentMail MCP tool, plus `jira-email` / `jira-api-token` / `jira-base` for Jira MCP tools used by `ticket-email-routing` and `network-ops-l1l2-triage` (including labels, priority, comments, transitions). Warm pool `network-ops-l1l2-triage-adk-pool` runs the NET-board triage template; ensure the adapter image exposes `ericsson_oss__get_correlated_alarms`, `netcracker__get_recent_changes`, and `servicenow_kb__get_similar_incidents`.
 - **Ingress / ALB cost**:
   - `infra/k8s-aws/ingress.yaml` creates an internet-facing ALB for the `runtime` service:
     - `/` → `runtime`

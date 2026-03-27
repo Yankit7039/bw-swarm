@@ -16,7 +16,7 @@ Optional — AgentMail (real sends from the adapter MCP `agentmail__send_email`;
 AGENTMAIL_API_KEY=your-key AGENTMAIL_INBOX_ID=your-inbox@agentmail.to OPENROUTER_API_KEY=sk-or-v1-... ./scripts/quickstart.sh
 ```
 
-Optional — Jira (for the ticket-email-routing template: `jira__get_ticket` and `jira__transition_ticket`). If unset, `jira-email` and `jira-api-token` are empty and those tools fail until you add credentials (same keys as AWS `adk-secrets`):
+Optional — Jira (for `ticket-email-routing` and `network-ops-l1l2-triage`: Jira MCP tools including `jira__get_ticket`, `jira__transition_ticket`, `jira__update_labels`, `jira__update_priority`, `jira__add_comment`). If unset, `jira-email` and `jira-api-token` are empty and those tools fail until you add credentials (same keys as AWS `adk-secrets`):
 
 ```bash
 JIRA_EMAIL=you@example.com JIRA_API_TOKEN=your-atlassian-api-token JIRA_BASE=https://swarm-bw.atlassian.net \
@@ -42,7 +42,7 @@ The script creates the Kind cluster, builds and loads images, installs agent-san
 - Postgres
 - Adapter service (FastAPI + MCP)
 - Runtime
-- Warm pools (stuck-order-adk, esim-activation-adk, number-porting-adk, ticket-email-routing-adk)
+- Warm pools (stuck-order-adk, esim-activation-adk, number-porting-adk, ticket-email-routing-adk, network-ops-l1l2-triage-adk)
 - Admin API
 
 At the end it prints the Runtime and Admin API URLs and suggests `kubectl get pods -w` to watch pods.
@@ -64,6 +64,7 @@ docker build -t stuck-order-adk:latest templates/stuck-order-adk
 docker build -t esim-activation-adk:latest templates/esim-activation-resolution
 docker build -t number-porting-adk:latest templates/number-porting-resolution
 docker build -t ticket-email-routing-adk:latest templates/ticket-email-routing
+docker build -t network-ops-l1l2-triage-adk:latest templates/network-ops-l1l2-triage
 docker build -t swarm-adapter:latest adapter
 docker build -f runtime/Dockerfile -t swarm-runtime:latest .
 docker build -f admin-api/Dockerfile -t swarm-admin-api:latest .
@@ -76,6 +77,7 @@ kind load docker-image stuck-order-adk:latest
 kind load docker-image esim-activation-adk:latest
 kind load docker-image number-porting-adk:latest
 kind load docker-image ticket-email-routing-adk:latest
+kind load docker-image network-ops-l1l2-triage-adk:latest
 kind load docker-image swarm-adapter:latest
 kind load docker-image swarm-runtime:latest
 kind load docker-image swarm-admin-api:latest
@@ -92,7 +94,7 @@ kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/downl
 
 Replace `sk-or-v1-...` with your OpenRouter API key. Optionally add AgentMail credentials (same keys as in `adk-secrets` for AWS); omit them or use empty strings to use mock email sends from the adapter.
 
-The adapter deployment expects **Jira** keys for the ticket-email-routing workflow (`jira-email`, `jira-api-token`, `jira-base`). Use empty strings for Jira if you are not testing that template yet. Add `jira-webhook-secret` if you use the Runtime Jira webhook (`POST /webhooks/jira`). Add `agentmail-webhook-secret` if you use the Runtime AgentMail webhook (`POST /webhooks/agentmail`).
+The adapter deployment expects **Jira** keys for ticket workflows (`jira-email`, `jira-api-token`, `jira-base`), including `ticket-email-routing` and `network-ops-l1l2-triage` (NET board webhooks route to the latter; ORD keys route to the former). The `network-ops-l1l2-triage` template also requires vendor MCP tools on the adapter (`ericsson_oss__get_correlated_alarms`, `netcracker__get_recent_changes`, `servicenow_kb__get_similar_incidents`). Use empty strings for Jira if you are not testing those templates yet. Add `jira-webhook-secret` if you use the Runtime Jira webhook (`POST /webhooks/jira`). Add `agentmail-webhook-secret` if you use the Runtime AgentMail webhook (`POST /webhooks/agentmail`).
 
 ```bash
 kubectl create secret generic adk-secrets \
@@ -118,6 +120,7 @@ kubectl apply -f infra/k8s/warmpool-stuck-order-adk.yaml
 kubectl apply -f infra/k8s/warmpool-esim-activation-adk.yaml
 kubectl apply -f infra/k8s/warmpool-number-porting-adk.yaml
 kubectl apply -f infra/k8s/warmpool-ticket-email-routing-adk.yaml
+kubectl apply -f infra/k8s/warmpool-network-ops-l1l2-triage-adk.yaml
 kubectl apply -f infra/k8s/admin-api-deployment.yaml
 ```
 

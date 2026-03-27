@@ -75,6 +75,7 @@ module "ecr" {
     "esim-activation-adk",
     "number-porting-adk",
     "ticket-email-routing-adk",
+    "network-ops-l1l2-triage-adk",
     "swarm-adapter",
     "swarm-runtime",
     "swarm-admin-api",

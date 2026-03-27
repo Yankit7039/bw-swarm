@@ -1,0 +1,267 @@
+template_id: network-ops-l1l2-triage
+version: "1.0"
+description: >
+  Fetches a network incident ticket created by L1, validates and corrects
+  the domain classification, calls telemetry and change management adapters,
+  synthesizes a structured triage analysis, and enriches the Jira ticket
+  with three short SWARM comments, priority update, and corrected labels.
+
+input:
+  required:
+    - ticket_id
+
+adapters:
+  - jira
+  - ericsson_oss
+  - netcracker
+  - servicenow_kb
+
+stages:
+
+  # STAGE 1 — FETCH & MOVE TO TRIAGING
+  - name: ingest
+    type: deterministic
+    steps:
+
+      - name: fetch_ticket
+        type: mcp_call
+        tool: jira__get_ticket
+        # jira__get_ticket expects order_id (issue key); ticket_id is workflow input in session state
+        input:
+          order_id: "{{ ticket_id }}"
+        output_key: ticket_details
+
+      # target_status must match the Jira *status* name (or transition name); the adapter also matches destination status from the transitions API.
+      - name: transition_to_triaging
+        type: mcp_call
+        tool: jira__transition_ticket
+        input:
+          order_id: "{{ ticket_id }}"
+          target_status: "Triaging"
+        output_key: transition_result
+
+  # STAGE 2 — CLASSIFY & VALIDATE L1 LABEL
+  - name: classify
+    type: hybrid
+    steps:
+
+      - name: validate_classification
+        type: llm_agent
+        description: >
+          Read the ticket. Validate the L1-assigned domain label.
+          Correct it if wrong. Extract site_id and alarm signature.
+        instruction: |
+          You are SWARM, an AI triage engine for a telecom network operations center.
+
+          An L1 engineer has created the following incident ticket and assigned
+          a domain label. Your job is to:
+          1. Read the ticket title and description carefully.
+          2. Determine the correct domain: RAN, Transport, or Core.
+             - RAN: cell towers, sectors, baseband units, handover, RRC, interference, radio
+             - Transport: fiber, microwave backhaul, links, packet loss, latency, routing
+             - Core: MME, HSS, SGW, PGW, VoLTE, IMS, Diameter, signaling, attach failures
+          3. Compare your determination against the L1 label (found in ticket labels).
+          4. Decide: is the L1 label correct or incorrect?
+          5. Extract a site_id (look for site codes like SITE-XX, NODE-XX, or any
+             network element identifier in the title or description. If none found, use "SITE-UNKNOWN").
+          6. Extract a short alarm_signature (2-3 word summary of the core fault type).
+
+          Ticket context: {{ ticket_details }}
+
+          Use JSON null for missing L1 label — never the string "None".
+          Keys must match exactly (automation depends on them).
+
+          Respond ONLY as JSON, no markdown, no extra text:
+          {
+            "validated_category": "RAN" | "Transport" | "Core",
+            "l1_category": "the label L1 assigned, or null if none",
+            "label_correct": true | false,
+            "reclassification_reason": "one sentence explanation, or null if correct",
+            "site_id": "...",
+            "alarm_signature": "..."
+          }
+        output_key: classification
+        fallback_state:
+          validated_category: "RAN"
+          l1_category: null
+          label_correct: true
+          reclassification_reason: null
+          site_id: "SITE-UNKNOWN"
+          alarm_signature: "network fault detected"
+
+      - name: propose_jira_labels
+        type: llm_agent
+        description: Propose 2–4 Jira labels grounded in ticket and classification (no hardcoded list).
+        instruction: |
+          You are SWARM, preparing Jira labels after domain classification for a network-ops incident.
+
+          Ticket context: {{ ticket_details }}
+          Classification (validated domain, site, alarm hint, L1 vs SWARM): {{ classification }}
+
+          Propose between 2 and 4 labels (maximum 4). Each label must be:
+          - Grounded in the ticket title/description and the classification above (domain RAN/Transport/Core,
+            site or element hints, fault or alarm type, severity or impact if visible).
+          - Jira-safe: ASCII letters, digits, hyphens only; no spaces; use hyphens between words
+            (e.g. ran-handover-degraded); keep each label reasonably short (under 60 characters).
+          - Unique in your list (no duplicates); do not copy-paste the entire description.
+
+          Do not emit JSON null entries in the array. Keys must match exactly.
+
+          Respond ONLY as JSON, no markdown, no extra text:
+          {
+            "labels_to_add": ["label-one", "label-two"]
+          }
+        output_key: label_plan
+        fallback_state:
+          labels_to_add:
+            - "{{ classification['validated_category'] }}"
+        input_keys:
+          - ticket_details
+          - classification
+
+      - name: update_labels
+        type: mcp_call
+        tool: jira__update_labels
+        input:
+          ticket_id: "{{ ticket_id }}"
+          labels_to_remove: ["{{ classification['l1_category'] }}"]
+        input_bindings:
+          labels_to_add: label_plan['labels_to_add']
+        output_key: label_result
+
+  # STAGE 3 — CALL VENDOR ADAPTERS
+  - name: enrich
+    type: deterministic
+    steps:
+
+      - name: get_correlated_alarms
+        type: mcp_call
+        tool: ericsson_oss__get_correlated_alarms
+        input:
+          site_id: "{{ classification['site_id'] }}"
+          time_window_hours: 6
+          category: "{{ classification['validated_category'] }}"
+        output_key: alarm_data
+
+      - name: get_recent_changes
+        type: mcp_call
+        tool: netcracker__get_recent_changes
+        input:
+          site_id: "{{ classification['site_id'] }}"
+          hours: 24
+          category: "{{ classification['validated_category'] }}"
+        output_key: change_data
+
+      - name: get_similar_incidents
+        type: mcp_call
+        tool: servicenow_kb__get_similar_incidents
+        input:
+          alarm_signature: "{{ classification['alarm_signature'] }}"
+          category: "{{ classification['validated_category'] }}"
+        output_key: kb_data
+
+  # STAGE 4 — SYNTHESIZE & WRITE BACK
+  - name: report
+    type: hybrid
+    steps:
+
+      - name: synthesize_analysis
+        type: llm_agent
+        description: >
+          Synthesize adapter data into three short Jira comments and a priority recommendation.
+        instruction: |
+          You are SWARM, an AI triage engine for a telecom NOC. You have
+          collected telemetry, change history, and historical incident data
+          for this ticket. Write three separate short comments for the L2 engineer
+          (plain text, no emojis, no markdown).
+
+          Rules:
+          - Be factual. Use only data provided below. Do not invent anything.
+          - Determine if the current Jira priority should be overridden.
+            Use this guide: if 3+ correlated alarms OR a high-risk change
+            preceded the incident → escalate to Highest. If 2 alarms or
+            a medium-risk change → High. Otherwise keep current priority.
+          - Each comment field must stay under 600 characters.
+          - Keys must match exactly (automation depends on them).
+
+          Ticket: {{ ticket_details }}
+          Classification: {{ classification }}
+          Correlated Alarms (Ericsson OSS): {{ alarm_data }}
+          Recent Changes (NetCracker): {{ change_data }}
+          Historical Incidents (ServiceNow KB): {{ kb_data }}
+
+          comment_classification: 1–3 sentences. State L1 label vs SWARM validated domain
+          (RAN / Transport / Core), and if reclassified, one short reason; if L1 was correct, say so.
+
+          comment_evidence: 2–5 short lines (use leading "- " for bullets). Summarize correlated
+          alarms count/pattern, notable recent changes, and any KB/historical match — compact.
+
+          comment_action: 2–4 sentences. Hypothesis (change ↔ alarms ↔ history), one concrete
+          next step for L2, and end with "Confidence: High" or "Confidence: Medium" or "Confidence: Low".
+
+          Respond ONLY as JSON, no markdown, no extra text:
+          {
+            "comment_classification": "...",
+            "comment_evidence": "...",
+            "comment_action": "...",
+            "recommended_priority": "Highest" | "High" | "Medium" | "Low"
+          }
+        input_keys:
+          - ticket_details
+          - classification
+          - alarm_data
+          - change_data
+          - kb_data
+        output_key: analysis
+        fallback_state:
+          comment_classification: >
+            SWARM: Full analysis unavailable. Domain from fallback: RAN.
+            Please validate classification manually.
+          comment_evidence: >
+            SWARM could not summarize alarms/changes/KB for this run.
+            Review adapter data in the run log.
+          comment_action: >
+            Next step: manually review correlated alarms and recent changes.
+            Confidence: Low
+          recommended_priority: "High"
+
+      - name: update_priority
+        type: mcp_call
+        tool: jira__update_priority
+        input:
+          ticket_id: "{{ ticket_id }}"
+          priority: "{{ analysis['recommended_priority'] }}"
+        output_key: priority_result
+
+      - name: post_swarm_comment_classification
+        type: mcp_call
+        tool: jira__add_comment
+        input:
+          ticket_id: "{{ ticket_id }}"
+          body: "{{ analysis['comment_classification'] }}"
+        output_key: comment_result_classification
+
+      - name: post_swarm_comment_evidence
+        type: mcp_call
+        tool: jira__add_comment
+        input:
+          ticket_id: "{{ ticket_id }}"
+          body: "{{ analysis['comment_evidence'] }}"
+        output_key: comment_result_evidence
+
+      - name: post_swarm_comment_action
+        type: mcp_call
+        tool: jira__add_comment
+        input:
+          ticket_id: "{{ ticket_id }}"
+          body: "{{ analysis['comment_action'] }}"
+        output_key: comment_result_action
+
+      # Align with your workflow status name in Jira (same as transition_to_triaging note).
+      - name: transition_to_enriched
+        type: mcp_call
+        tool: jira__transition_ticket
+        input:
+          order_id: "{{ ticket_id }}"
+          target_status: "Enriched"
+        output_key: final_transition

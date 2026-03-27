@@ -30,6 +30,13 @@ TEMPLATES = [
         "warm_pool_ref": "ticket-email-routing-adk-pool",
         "yaml_path": "templates/ticket-email-routing/ticket-email-routing.yaml",
     },
+    {
+        "template_id": "network-ops-l1l2-triage",
+        "name": "Network Ops L1/L2 Triage",
+        "image": "network-ops-l1l2-triage-adk:latest",
+        "warm_pool_ref": "network-ops-l1l2-triage-adk-pool",
+        "yaml_path": "templates/network-ops-l1l2-triage/network-ops-l1l2-triage.yaml",
+    },
 ]
 
 

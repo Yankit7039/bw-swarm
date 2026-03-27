@@ -6,7 +6,7 @@
 #   ./scripts/quickstart.sh sk-or-v1-...
 # Optional (AgentMail — adapter MCP send_email; leave unset to use mock sends):
 #   AGENTMAIL_API_KEY=... AGENTMAIL_INBOX_ID=agent@... ./scripts/quickstart.sh
-# Optional (Jira — adapter MCP jira__get_ticket / jira__transition_ticket for ticket-email-routing):
+# Optional (Jira — adapter MCP Jira tools for ticket-email-routing and network-ops-l1l2-triage):
 #   JIRA_EMAIL=... JIRA_API_TOKEN=... JIRA_BASE=https://your-site.atlassian.net ./scripts/quickstart.sh
 #   (defaults: empty email/token, JIRA_BASE=https://swarm-bw.atlassian.net — empty Jira creds mean Jira tools return errors until set)
 # Optional (Runtime POST /webhooks/jira — Bearer token; same key as adk-secrets jira-webhook-secret on AWS):
@@ -69,6 +69,7 @@ docker build -t stuck-order-adk:latest templates/stuck-order-adk
 docker build -t esim-activation-adk:latest templates/esim-activation-resolution
 docker build -t number-porting-adk:latest templates/number-porting-resolution
 docker build -t ticket-email-routing-adk:latest templates/ticket-email-routing
+docker build -t network-ops-l1l2-triage-adk:latest templates/network-ops-l1l2-triage
 docker build -t swarm-adapter:latest adapter
 docker build -f runtime/Dockerfile -t swarm-runtime:latest .
 docker build -f admin-api/Dockerfile -t swarm-admin-api:latest .
@@ -79,6 +80,7 @@ kind load docker-image stuck-order-adk:latest
 kind load docker-image esim-activation-adk:latest
 kind load docker-image number-porting-adk:latest
 kind load docker-image ticket-email-routing-adk:latest
+kind load docker-image network-ops-l1l2-triage-adk:latest
 kind load docker-image swarm-adapter:latest
 kind load docker-image swarm-runtime:latest
 kind load docker-image swarm-admin-api:latest
@@ -114,6 +116,7 @@ kubectl apply -f infra/k8s/warmpool-stuck-order-adk.yaml
 kubectl apply -f infra/k8s/warmpool-esim-activation-adk.yaml
 kubectl apply -f infra/k8s/warmpool-number-porting-adk.yaml
 kubectl apply -f infra/k8s/warmpool-ticket-email-routing-adk.yaml
+kubectl apply -f infra/k8s/warmpool-network-ops-l1l2-triage-adk.yaml
 kubectl apply -f infra/k8s/admin-api-deployment.yaml
 
 echo

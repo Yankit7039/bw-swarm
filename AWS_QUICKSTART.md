@@ -1,6 +1,6 @@
 # SWARM on AWS — Quickstart
 
-Deploy SWARM (runtime, adapter, admin API, stuck-order ADK) to EKS in AWS account `718277287766`, region `ap-southeast-1`. The Makefile automates Terraform, ECR, and Kubernetes rollout.
+Deploy SWARM (runtime, adapter, admin API, hybrid ADK templates including stuck-order, eSIM, number-porting, ticket-email-routing, network-ops-l1l2-triage) to EKS in AWS account `718277287766`, region `ap-southeast-1`. The Makefile automates Terraform, ECR, and Kubernetes rollout.
 
 Run all commands from the repo root.
 
@@ -39,7 +39,7 @@ agentmail_webhook_secret  = "REPLACE_ME"
 
 Set `agentmail_webhook_secret` to the signing secret AgentMail uses for `POST /webhooks/agentmail` on the Runtime (stored as `agentmail-webhook-secret` in Secrets Manager / `adk-secrets`). The adapter continues to use `agentmail_inbox_id` for MCP send; the runtime does not require `AGENTMAIL_INBOX_ID`.
 
-Use placeholders (`REPLACE_ME`) if you are not using AgentMail yet; the adapter will mock send. For Jira (`ticket-email-routing` template: `jira__get_ticket`, `jira__transition_ticket`), set `jira_email` and `jira_api_token` to your Atlassian account email and API token; `jira_base` is your site URL (no trailing slash). Set `jira_webhook_secret` to the Bearer token Jira sends to `POST /webhooks/jira` on the Runtime (stored as `jira-webhook-secret` in Secrets Manager / `adk-secrets`). Do not commit real API keys. Use local edits or a secrets manager.
+Use placeholders (`REPLACE_ME`) if you are not using AgentMail yet; the adapter will mock send. For Jira (`ticket-email-routing` and `network-ops-l1l2-triage`: get/transition/labels/priority/comment tools), set `jira_email` and `jira_api_token` to your Atlassian account email and API token; `jira_base` is your site URL (no trailing slash). Query param `order_id` on `POST /webhooks/jira`: keys starting with `NET` trigger `network-ops-l1l2-triage` (`ticket_id` payload); other keys (e.g. `ORD`) use `ticket-email-routing`. Set `jira_webhook_secret` to the Bearer token Jira sends to `POST /webhooks/jira` on the Runtime (stored as `jira-webhook-secret` in Secrets Manager / `adk-secrets`). Do not commit real API keys. Use local edits or a secrets manager.
 
 **Remote state:** If this is a greenfield account, bootstrap once with `infra/terraform/backend` (init, apply). Otherwise the backend is already configured.
 
