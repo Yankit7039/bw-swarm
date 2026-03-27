@@ -196,12 +196,6 @@
   background-color: #fafbfc !important;
 }
 
-.flow-page .react-flow__minimap {
-  border-radius: 0.5rem;
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
-}
-
 .flow-page .react-flow__controls {
   box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
   border-radius: 0.5rem;

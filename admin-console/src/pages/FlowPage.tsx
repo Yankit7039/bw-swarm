@@ -5,7 +5,6 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MiniMap,
   ReactFlowProvider,
   useReactFlow,
   type Node,
@@ -96,18 +95,16 @@ function FlowCanvasInner({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
     >
       <Background variant={BackgroundVariant.Dots} gap={12} size={2} color="#e2e8f0" />
       <Controls position="bottom-right" />
-      <MiniMap
-        position="bottom-left"
-        maskColor="rgba(15, 23, 42, 0.12)"
-        nodeStrokeWidth={2}
-        pannable
-        zoomable
-      />
     </ReactFlow>
   )
 }
 
-export function FlowPage() {
+export interface FlowPageProps {
+  /** When true, render only the flow UI (no shell); use inside Observe / Runs. */
+  embedded?: boolean
+}
+
+export function FlowPage({ embedded = false }: FlowPageProps) {
   const { data: templatesData, isLoading: templatesLoading } = useTemplates(500, 0)
   const withYaml = useMemo(() => templatesWithYaml(templatesData?.data), [templatesData?.data])
 
@@ -509,8 +506,7 @@ export function FlowPage() {
     setSelectedId(e.target.value)
   }, [])
 
-  return (
-    <Layout>
+  const body = (
       <div className="flow-page">
         <div className="flow-page__toolbar flow-page__toolbar--split">
           <div className="flow-page__toolbar-left">
@@ -622,6 +618,8 @@ export function FlowPage() {
           </span>
         </div>
       </div>
-    </Layout>
   )
+
+  if (embedded) return body
+  return <Layout>{body}</Layout>
 }

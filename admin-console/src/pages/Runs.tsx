@@ -1,6 +1,6 @@
-import { useState, lazy, Suspense } from 'react'
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
   RotateCcw,
@@ -8,8 +8,10 @@ import {
   Activity,
   List,
   Network,
+  GitBranch,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
+import { FlowPage } from './FlowPage'
 import { runsApi } from '../api/runs'
 import { useTemplates } from '../hooks/useTemplates'
 import type { Run } from '../types/common'
@@ -79,7 +81,13 @@ function templateInitial(name?: string, fallback?: string): string {
 const ITEMS_PER_PAGE = 10
 
 type TimePeriod = 'all' | '1day' | '1week' | '1month'
-type ViewMode = 'list' | 'swarm'
+type ViewMode = 'list' | 'swarm' | 'flow'
+
+function parseViewFromSearchParams(sp: URLSearchParams): ViewMode {
+  const v = sp.get('view')
+  if (v === 'flow' || v === 'swarm') return v
+  return 'list'
+}
 
 const STATUS_OPTIONS: { id: StatusFilter; label: string }[] = [
   { id: 'all', label: 'All Runs' },
@@ -97,11 +105,32 @@ const TIME_PERIOD_OPTIONS: { id: TimePeriod; label: string }[] = [
 ]
 
 export const Runs = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [currentPage, setCurrentPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selectedTemplate, setSelectedTemplate] = useState('')
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('all')
-  const [view, setView] = useState<ViewMode>('list')
+  const [view, setView] = useState<ViewMode>(() => parseViewFromSearchParams(searchParams))
+
+  useEffect(() => {
+    setView(parseViewFromSearchParams(searchParams))
+  }, [searchParams])
+
+  const selectView = useCallback(
+    (next: ViewMode) => {
+      setView(next)
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev)
+          if (next === 'list') p.delete('view')
+          else p.set('view', next)
+          return p
+        },
+        { replace: true }
+      )
+    },
+    [setSearchParams]
+  )
 
   const { data: templates } = useTemplates(100, 0)
 
@@ -116,6 +145,7 @@ export const Runs = () => {
         offset: (currentPage - 1) * ITEMS_PER_PAGE,
       }),
     refetchInterval: view === 'list' ? 3000 : false,
+    enabled: view === 'list',
   })
 
   // Fetch all runs with events for the swarm view
@@ -140,8 +170,8 @@ export const Runs = () => {
 
   return (
     <Layout>
-      <div className={`w-full min-h-full ${t.bg} ${t.onBg} font-body`}>
-        <div className="p-6 sm:p-8 space-y-8 sm:space-y-10 max-w-[1600px] mx-auto">
+      <div className={`w-full flex-1 flex flex-col min-h-0 ${t.bg} ${t.onBg} font-body`}>
+        <div className="shrink-0 px-6 sm:px-8 pt-6 sm:pt-8 max-w-[1600px] mx-auto w-full">
           {/* Page header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-2">
@@ -157,7 +187,7 @@ export const Runs = () => {
             <div className="flex gap-1 bg-[#f0f4f7] p-1.5 rounded-xl self-start md:self-end">
               <button
                 type="button"
-                onClick={() => setView('list')}
+                onClick={() => selectView('list')}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
                   view === 'list'
                     ? 'bg-white text-[#6d3bd7] shadow-sm'
@@ -169,7 +199,7 @@ export const Runs = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setView('swarm')}
+                onClick={() => selectView('swarm')}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
                   view === 'swarm'
                     ? 'bg-white text-[#6d3bd7] shadow-sm'
@@ -179,9 +209,27 @@ export const Runs = () => {
                 <Network className="w-4 h-4" />
                 Swarm
               </button>
+              <button
+                type="button"
+                onClick={() => selectView('flow')}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                  view === 'flow'
+                    ? 'bg-white text-[#6d3bd7] shadow-sm'
+                    : 'text-[#566166] hover:text-[#2a3439]'
+                }`}
+              >
+                <GitBranch className="w-4 h-4" />
+                Flow
+              </button>
             </div>
           </div>
+        </div>
 
+        <div
+          className={`flex-1 min-h-0 flex flex-col px-6 sm:px-8 pb-8 max-w-[1600px] mx-auto w-full ${
+            view === 'list' ? 'pt-8 space-y-8 sm:space-y-10' : 'pt-8'
+          }`}
+        >
           {view === 'swarm' ? (
             <Suspense
               fallback={
@@ -198,6 +246,10 @@ export const Runs = () => {
                 isLoading={isSwarmLoading}
               />
             </Suspense>
+          ) : view === 'flow' ? (
+            <div className="flex-1 min-h-0 min-h-[min(70vh,52rem)] flex flex-col rounded-2xl border border-[#a9b4b9]/40 overflow-hidden bg-[#fafbfc]">
+              <FlowPage embedded />
+            </div>
           ) : (
             <>
           {/* Filter row with dropdowns */}
