@@ -1,3 +1,5 @@
+"""swarm_runbook_svc internal SOP registry — MCP tool registration."""
+
 from __future__ import annotations
 
 from typing import Any

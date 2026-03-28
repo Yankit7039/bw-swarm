@@ -1,5 +1,3 @@
-"""Post a comment on a Jira issue — POST /rest/api/3/issue/{issueKey}/comment."""
-
 from __future__ import annotations
 
 import os
@@ -39,7 +37,10 @@ def _plain_text_adf(text: str) -> dict:
 
 
 def add_comment(ticket_id: str, body: str) -> dict:
-    """Add a comment to the issue; body is sent as Atlassian Document Format (plain text paragraph)."""
+    """Jira: Add comment
+
+    MCP: ticket_id is the issue key. body is plain text wrapped as Atlassian Document Format (one paragraph).
+    """
     issue_key = (ticket_id or "").strip()
     comment_body = body if isinstance(body, str) else ""
     if not issue_key:

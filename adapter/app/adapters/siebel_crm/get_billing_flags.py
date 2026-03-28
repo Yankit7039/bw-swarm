@@ -5,6 +5,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def get_billing_flags(order_id: str) -> dict:
+    """CRM: Getting billing flags
+
+    Returns billing holds and ledger anomalies for an order. Use during investigation
+    when stuck orders may be blocked by billing or proration issues.
+    """
     s = scenario_for_order_id(order_id)
     if s == 1:
         data = {

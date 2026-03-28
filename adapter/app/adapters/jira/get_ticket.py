@@ -1,5 +1,3 @@
-"""Fetch Jira issue by key — GET /rest/api/3/issue/{issueKey}."""
-
 from __future__ import annotations
 
 import os
@@ -57,6 +55,11 @@ def _description_plain(description: Any) -> str:
 
 
 def get_ticket(order_id: str) -> dict:
+    """Jira: Get issue
+
+    MCP parameter order_id is the Jira issue key. GET /rest/api/3/issue/{issueKey}.
+    Returns key, title, status, labels, description_plain, and related fields.
+    """
     issue_key = (order_id or "").strip()
     if not issue_key:
         return AdapterResponse(

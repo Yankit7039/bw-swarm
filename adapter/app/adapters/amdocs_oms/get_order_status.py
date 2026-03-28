@@ -9,6 +9,12 @@ from app.models.responses import AdapterResponse, OrderStatus, ToolMeta
 
 
 def get_order_status(order_id: str, use_resolution_buckets: bool = False) -> dict:
+    """OMS: Getting order status
+
+    Fetches the current status, fulfillment stage, and error code for an order
+    from Amdocs OMS. Use this first when an order may be stuck or failed to
+    determine its current state before deciding on a resolution path.
+    """
     order_id = (order_id or "").strip() or "ORD-UNK"
 
     if use_resolution_buckets:

@@ -7,6 +7,12 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def check_activation_status(order_id: str) -> dict:
+    """SM-DP+: Checking activation status
+
+    Queries the SM-DP+ profile server for the current eSIM activation state.
+    Returns profile download attempts, SM-DP+ error codes, LPA readiness, and profile ID.
+    Use to determine why an activation is stuck or whether a retry is safe.
+    """
     s = scenario_for_order_id(order_id)
     scenarios = [
         {"status": "pending_profile", "profile_id": "PRF-001", "last_event": now_iso(),

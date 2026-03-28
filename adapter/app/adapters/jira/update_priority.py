@@ -1,5 +1,3 @@
-"""Update Jira issue priority — PUT /rest/api/3/issue/{issueKey}."""
-
 from __future__ import annotations
 
 import os
@@ -28,7 +26,10 @@ def _auth() -> tuple[str, str] | None:
 
 
 def update_priority(ticket_id: str, priority: str) -> dict:
-    """Set the issue priority to one of: Highest, High, Medium, Low, Lowest."""
+    """Jira: Update priority
+
+    MCP: ticket_id is the issue key. priority must be one of Highest, High, Medium, Low, Lowest. PUT fields.priority.
+    """
     issue_key = (ticket_id or "").strip()
     name = (priority or "").strip()
     if not issue_key:

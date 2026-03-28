@@ -7,6 +7,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def send_alert(to: str, subject: str, body: str) -> dict:
+    """Notification: Sending alert
+
+    Sends an escalation message (e.g. Teams webhook) to the given recipient address.
+    Use after composing subject/body; pass the escalation contact email from escalation lookup.
+    """
     data = {
         "sent": True,
         "message_id": f"TEAMS-{now_iso()}-{hash(to) % 10000}",

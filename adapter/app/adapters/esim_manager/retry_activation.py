@@ -7,6 +7,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def retry_activation(order_id: str) -> dict:
+    """SM-DP+: Retrying activation
+
+    Triggers a new eSIM profile activation attempt on the SM-DP+ server.
+    Use when the profile is downloaded (lpa_ready=True) but the activation callback was not received.
+    """
     data = {
         "success": True,
         "retry_initiated": True,

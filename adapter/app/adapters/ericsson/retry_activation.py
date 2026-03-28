@@ -5,6 +5,12 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def retry_activation(order_id: str, msisdn: str = "") -> dict:
+    """Network: Retrying activation
+
+    Queues a network-side activation retry for applicable failure modes.
+    Only use when activation/provisioning evidence supports a retry; confirm with
+    get_port_status or logs before and after.
+    """
     s = scenario_for_order_id(order_id)
     m = msisdn.strip() or f"MSISDN-{order_id}"
     ok = s in (0, 3)

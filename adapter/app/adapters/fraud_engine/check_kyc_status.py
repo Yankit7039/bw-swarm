@@ -7,6 +7,12 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def check_kyc_status(order_id: str) -> dict:
+    """Actimize: Checking KYC status
+
+    Retrieves the current KYC verification state for an order from NICE Actimize.
+    Returns liveness check result, document retry count, face-match score, and overall kyc_state.
+    Use to determine if a KYC retry is appropriate after a failed activation.
+    """
     s = scenario_for_order_id(order_id)
     scenarios = [
         {"liveness_passed": True, "kyc_state": "pending_document", "last_attempt": now_iso(),

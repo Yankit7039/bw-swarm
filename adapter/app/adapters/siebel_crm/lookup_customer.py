@@ -5,6 +5,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def lookup_customer(order_id: str, customer_id: str = "") -> dict:
+    """CRM: Looking up customer
+
+    Resolves the customer profile for an order (or explicit customer_id) from Siebel CRM:
+    name, plan, region, account status, contacts. Use early in enrichment to anchor identity.
+    """
     oid = (order_id or "").strip() or "ORD-UNK"
     cid = (customer_id or "").strip() or f"CUST-{oid}"
     s = scenario_for_order_id(oid) % 4

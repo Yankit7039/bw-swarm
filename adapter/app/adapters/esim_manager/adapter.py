@@ -1,3 +1,5 @@
+"""SM-DP+ eSIM profile server — MCP tool registration."""
+
 from __future__ import annotations
 
 from typing import Any

@@ -5,6 +5,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def get_activation_logs(order_id: str, hours: int = 24, msisdn: str = "") -> dict:
+    """Network: Getting activation logs
+
+    Returns recent HLR/activation events and error codes for forensics.
+    Use to correlate timeouts, holds, or upstream failures with order timeline.
+    """
     s = scenario_for_order_id(order_id)
     m = msisdn.strip() or f"MSISDN-{order_id}"
     if s == 0:

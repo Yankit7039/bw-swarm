@@ -7,6 +7,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def get_runbook(root_cause: str, order_type: str) -> dict:
+    """Runbook: Getting runbook
+
+    Fetches the standard operating procedure for a given root cause and order type
+    from the internal runbook registry. Returns recommended resolution steps and tool names.
+    """
     runbooks = {
         "fraud_clearance_hold": {
             "runbook_id": "RB-FRAUD-001",

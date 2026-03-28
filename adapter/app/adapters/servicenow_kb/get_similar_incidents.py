@@ -1,5 +1,3 @@
-"""Simulates ServiceNow KB and incident history search by alarm signature."""
-
 from __future__ import annotations
 
 from app.adapters._mock_scenarios import tool_meta
@@ -16,11 +14,10 @@ def _scenario_key(category: str) -> str:
 
 
 def get_similar_incidents(alarm_signature: str, category: str = "RAN") -> dict:
-    """
-    Searches ServiceNow historical incident database for past incidents matching the current
-    alarm signature and category.
+    """ServiceNow KB: Similar incidents
 
-    In production this would query CMDB/incident APIs; this implementation returns fixed scenarios.
+    MCP: alarm_signature, category (RAN / Transport / Core). Mock historical matches;
+    production would query CMDB/incident APIs.
     """
     _ = alarm_signature  # accepted for API parity; not echoed in mock payload
     branch = _scenario_key(category)

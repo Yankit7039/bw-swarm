@@ -5,6 +5,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def get_account_status(customer_id: str) -> dict:
+    """CRM: Getting account status
+
+    Returns high-level account state and risk flags for a customer_id.
+    Use after lookup_customer when you need to confirm whether the account is active or flagged.
+    """
     s = scenario_for_order_id(customer_id)
     status = "active" if s != 2 else "active_with_flags"
     flags = [] if s != 2 else ["fraud_watchlist_check_required"]

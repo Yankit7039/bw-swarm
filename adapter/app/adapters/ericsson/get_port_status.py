@@ -5,6 +5,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def get_port_status(order_id: str, msisdn: str = "") -> dict:
+    """Network: Getting port status
+
+    Returns network/port holds and verification state for an order or MSISDN.
+    Use when investigating port-in, fraud holds, or upstream sync issues.
+    """
     s = scenario_for_order_id(order_id)
     m = msisdn.strip() or f"MSISDN-{order_id}"
     if s == 2:

@@ -1,5 +1,3 @@
-"""Simulates correlated alarm queries from Ericsson OSS for a site and time window."""
-
 from __future__ import annotations
 
 from app.adapters._mock_scenarios import tool_meta
@@ -16,11 +14,10 @@ def _scenario_key(category: str) -> str:
 
 
 def get_correlated_alarms(site_id: str, time_window_hours: int = 6, category: str = "RAN") -> dict:
-    """
-    Fetches correlated alarms from Ericsson OSS for a given network element and time window.
+    """Ericsson OSS: Correlated alarms
 
-    In production this would query the OSS FM/correlation engine; this implementation returns
-    fixed scenario data keyed by category (RAN, Transport, Core).
+    MCP: site_id, time_window_hours, category (RAN / Transport / Core). Mock scenarios keyed by category;
+    production would query the OSS FM/correlation engine.
     """
     sid = site_id if isinstance(site_id, str) else ""
     hours = time_window_hours if isinstance(time_window_hours, int) else 6

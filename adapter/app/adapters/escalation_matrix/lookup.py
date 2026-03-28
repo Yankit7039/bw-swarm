@@ -30,6 +30,12 @@ _MATRIX: dict[str, dict[str, str]] = {
 
 
 def lookup(department: str) -> dict:
+    """Escalation matrix: Looking up contact
+
+    Maps a department key (e.g. billing, porting, network_provisioning, field_ops)
+    to the named owner and email for escalations. Normalize department_owner from
+    investigation to the closest key before calling.
+    """
     key = (department or "").strip().lower().replace(" ", "_")
     row = _MATRIX.get(key) or _MATRIX["_default"]
     data = {

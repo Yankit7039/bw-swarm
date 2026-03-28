@@ -5,6 +5,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def get_contact_details(customer_id: str) -> dict:
+    """CRM: Getting contact details
+
+    Returns primary and billing contacts for escalation emails or callbacks.
+    Use when you need verified contact channels for a customer_id.
+    """
     return AdapterResponse(
         meta=ToolMeta(**tool_meta("siebel_crm", "get_contact_details")),
         data={

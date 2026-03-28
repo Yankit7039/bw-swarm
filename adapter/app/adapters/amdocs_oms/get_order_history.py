@@ -5,6 +5,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def get_order_history(order_id: str, limit: int = 20, offset: int = 0) -> dict:
+    """OMS: Getting order history
+
+    Returns paginated timeline entries (events, codes, sources) for an order.
+    Use when you need evidence of what happened over time; paginate when has_more is true.
+    """
     s = scenario_for_order_id(order_id)
 
     if s == 0:

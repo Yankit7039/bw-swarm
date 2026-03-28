@@ -16,6 +16,11 @@ _MATRIX = {
 
 
 def get_escalation_contact(priority: str, level: str, order_type: str) -> dict:
+    """Runbook: Getting escalation contact
+
+    Looks up the escalation contact, team name, and SLA minutes for a given priority, escalation
+    level, and order type. Use to determine who to notify during each poll-loop escalation iteration.
+    """
     key = (priority or "P1", level or "L1", order_type or "esim_activation")
     contact = _MATRIX.get(key, _MATRIX.get(("P1", "L1", "esim_activation")))
     data = {**contact, "priority": priority, "level": level, "order_type": order_type, "system": "swarm_runbook_svc"}

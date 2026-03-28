@@ -7,6 +7,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def release_fraud_hold(order_id: str) -> dict:
+    """Actimize: Releasing fraud hold
+
+    Releases an active fraud hold on an order in NICE Actimize.
+    Only call if check_fraud_hold confirms auto_release_eligible is True.
+    """
     data = {
         "success": True,
         "released_at": now_iso(),

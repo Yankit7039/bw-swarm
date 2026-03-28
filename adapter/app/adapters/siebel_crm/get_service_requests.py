@@ -5,6 +5,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def get_service_requests(customer_id: str, limit: int = 10) -> dict:
+    """CRM: Getting service requests
+
+    Lists recent service requests/tickets for a customer. Use for context on open
+    incidents or recurring issues related to the order.
+    """
     s = scenario_for_order_id(customer_id)
     requests = [
         {"sr_id": "SR-10001", "type": "billing_question", "status": "closed", "created_at": "2024-01-10T12:00:00Z"},

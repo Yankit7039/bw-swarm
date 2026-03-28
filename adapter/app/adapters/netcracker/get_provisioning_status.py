@@ -5,6 +5,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def get_provisioning_status(order_id: str) -> dict:
+    """Provisioning: Getting status
+
+    Returns downstream provisioning state and blocking reason/code from Netcracker.
+    Use to see if the order is failed, blocked, or inconsistent across systems.
+    """
     s = scenario_for_order_id(order_id)
     if s == 0:
         status = {"status": "failed", "reason": "timeout", "code": "TIMEOUT_504"}

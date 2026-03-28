@@ -15,6 +15,11 @@ ERROR_CODES: dict[str, dict] = {
 
 
 def get_error_codes(code: str) -> dict:
+    """OMS: Looking up error code
+
+    Resolves an OMS or gateway error code to meaning, suggested action, and severity.
+    Call when logs or status reference an opaque code you need to interpret.
+    """
     info = ERROR_CODES.get(code, {"code": code, "meaning": "Unknown code", "action": "Check documentation or escalate", "severity": "unknown"})
     return AdapterResponse(meta=ToolMeta(**tool_meta("amdocs_oms", "get_error_codes")), data=info).model_dump()
 

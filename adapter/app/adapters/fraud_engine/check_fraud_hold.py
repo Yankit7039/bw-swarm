@@ -7,6 +7,12 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def check_fraud_hold(order_id: str) -> dict:
+    """Actimize: Checking fraud hold
+
+    Checks whether an active fraud hold is blocking an eSIM activation order in NICE Actimize.
+    Returns hold status, auto_release_eligible flag, risk score, and hold reason.
+    Call this first to determine if fraud clearance is needed before attempting activation.
+    """
     s = scenario_for_order_id(order_id)
     # Rich, contradictory signals - hold_active but auto_release_eligible; risk_score varies
     scenarios = [

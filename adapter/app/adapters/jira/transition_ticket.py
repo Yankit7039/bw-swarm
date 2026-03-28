@@ -1,5 +1,3 @@
-"""Transition Jira issue — GET/POST /rest/api/3/issue/{issueKey}/transitions."""
-
 from __future__ import annotations
 
 import os
@@ -27,6 +25,11 @@ def _auth() -> tuple[str, str] | None:
 
 
 def transition_ticket(order_id: str, target_status: str) -> dict:
+    """Jira: Transition issue
+
+    MCP: order_id is the issue key; target_status matches a transition name or destination
+    status from GET /rest/api/3/issue/{issueKey}/transitions.
+    """
     issue_key = (order_id or "").strip()
     want = (target_status or "").strip().lower()
     if not issue_key:

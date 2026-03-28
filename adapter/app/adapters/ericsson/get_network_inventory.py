@@ -5,6 +5,11 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def get_network_inventory(msisdn: str) -> dict:
+    """Network: Getting inventory
+
+    Returns HLR/IMS profile snapshot for an MSISDN. Use when you need device
+    or network capability context during investigation.
+    """
     return AdapterResponse(
         meta=ToolMeta(**tool_meta("ericsson", "get_network_inventory")),
         data={

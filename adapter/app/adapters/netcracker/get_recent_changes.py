@@ -1,5 +1,3 @@
-"""Simulates NetCracker change management queries for planned and emergency changes."""
-
 from __future__ import annotations
 
 from app.adapters._mock_scenarios import tool_meta
@@ -16,10 +14,10 @@ def _scenario_key(category: str) -> str:
 
 
 def get_recent_changes(site_id: str, hours: int = 24, category: str = "RAN") -> dict:
-    """
-    Fetches recent planned and emergency changes from NetCracker change management for a given site.
+    """NetCracker: Recent changes
 
-    In production this would call NetCracker OSS/BSS APIs; this implementation returns fixed scenarios.
+    MCP: site_id, hours, category (RAN / Transport / Core). Mock scenarios by category;
+    production would call NetCracker change-management APIs.
     """
     sid = site_id if isinstance(site_id, str) else ""
     h = hours if isinstance(hours, int) else 24

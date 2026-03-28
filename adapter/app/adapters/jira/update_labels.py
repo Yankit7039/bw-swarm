@@ -1,5 +1,3 @@
-"""Merge labels on a Jira issue — GET/PUT /rest/api/3/issue/{issueKey}."""
-
 from __future__ import annotations
 
 import os
@@ -43,7 +41,10 @@ def update_labels(
     labels_to_add: list[str] | None = None,
     labels_to_remove: list[str] | None = None,
 ) -> dict:
-    """Fetch current labels, remove labels_to_remove, add labels_to_add, then PUT the issue."""
+    """Jira: Update labels
+
+    MCP: ticket_id is the issue key. GET current labels, remove labels_to_remove, add labels_to_add, then PUT.
+    """
     issue_key = (ticket_id or "").strip()
     if not issue_key:
         return AdapterResponse(
