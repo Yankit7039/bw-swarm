@@ -6,6 +6,8 @@ description: >
   synthesizes a structured triage analysis, and enriches the Jira ticket
   with three short SWARM comments, priority update, and corrected labels.
 
+model: openrouter/qwen/qwen3.5-flash-02-23
+
 input:
   required:
     - ticket_id
@@ -15,6 +17,16 @@ adapters:
   - ericsson_oss
   - netcracker
   - servicenow_kb
+
+result_keys:
+  - ticket_details
+  - classification
+  - label_plan
+  - alarm_data
+  - change_data
+  - kb_data
+  - analysis
+  - final_transition
 
 stages:
 
@@ -26,12 +38,10 @@ stages:
       - name: fetch_ticket
         type: mcp_call
         tool: jira__get_ticket
-        # jira__get_ticket expects order_id (issue key); ticket_id is workflow input in session state
         input:
           order_id: "{{ ticket_id }}"
         output_key: ticket_details
 
-      # target_status must match the Jira *status* name (or transition name); the adapter also matches destination status from the transitions API.
       - name: transition_to_triaging
         type: mcp_call
         tool: jira__transition_ticket
@@ -80,6 +90,8 @@ stages:
             "site_id": "...",
             "alarm_signature": "..."
           }
+        input_keys:
+          - ticket_details
         output_key: classification
         fallback_state:
           validated_category: "RAN"
@@ -111,13 +123,13 @@ stages:
           {
             "labels_to_add": ["label-one", "label-two"]
           }
+        input_keys:
+          - ticket_details
+          - classification
         output_key: label_plan
         fallback_state:
           labels_to_add:
             - "{{ classification['validated_category'] }}"
-        input_keys:
-          - ticket_details
-          - classification
 
       - name: update_labels
         type: mcp_call
@@ -257,7 +269,6 @@ stages:
           body: "{{ analysis['comment_action'] }}"
         output_key: comment_result_action
 
-      # Align with your workflow status name in Jira (same as transition_to_triaging note).
       - name: transition_to_enriched
         type: mcp_call
         tool: jira__transition_ticket

@@ -1,15 +1,21 @@
-# network-ops-l1l2-triage
+# Network ops L1/L2 triage template
 
-Hybrid ADK workflow: fetch Jira issue by `ticket_id`, transition to Triaging, LLM validates domain (RAN/Transport/Core), updates labels, calls Ericsson OSS / NetCracker / ServiceNow KB adapters, synthesizes triage comment, updates priority, posts comment, transitions to Enriched.
+YAML-driven workflow using the shared **[swarm-core](../../swarm-core/)** Python package (`swarm_core`). The base image is **`swarm-core:latest`** (build `swarm-core/` first); this Dockerfile only copies `network-ops-l1l2-triage.yaml` to `/app/workflow.yaml`. The pod runs `swarm_core.entrypoint`: POST `/run` (`run_id` + `payload`) and writes to shared Postgres (`runs`, `run_events`).
 
-## Build
+- **Submit runs**: Use the **runtime** service: `POST /runs` with `{ "template_id": "network-ops-l1l2-triage", "payload": { "ticket_id": "NET-123" } }`.
+- **Build images** (repo root):
 
-```bash
-docker build -t network-ops-l1l2-triage-adk:latest .
-```
+  ```bash
+  docker build -t swarm-core:latest swarm-core/
+  docker build -t network-ops-l1l2-triage-adk:latest templates/network-ops-l1l2-triage
+  ```
 
-## Run
+  Or from `infra/docker`: build `swarm-core` first, then `docker compose build` if a service references this template (use `context: ../../templates/network-ops-l1l2-triage` and `BASE_IMAGE: swarm-core:latest`).
 
-Use the runtime service with `template_id: network-ops-l1l2-triage` and payload `{ "ticket_id": "NET-123" }`.
+  For ECR, pass `--build-arg BASE_IMAGE=<account>.dkr.ecr.<region>.amazonaws.com/swarm-core:latest` when building this image.
 
-Warm pool: `network-ops-l1l2-triage-adk-pool`. Adapter must expose the Jira and vendor tools listed in `network-ops-l1l2-triage.yaml`. Set `JIRA_EMAIL`, `JIRA_API_TOKEN`, and `JIRA_BASE` on the adapter.
+- **Deploy warm pool**: `kubectl apply -f ../../infra/k8s-aws/warmpool-network-ops-l1l2-triage-adk.yaml` (set your registry image as needed).
+
+**Contents**: `network-ops-l1l2-triage.yaml` (workflow definition), `Dockerfile` (extends `swarm-core`, copies YAML only), `.env.example`.
+
+The adapter must expose Jira tools (`jira__get_ticket`, `jira__transition_ticket`, `jira__update_labels`, `jira__update_priority`, `jira__add_comment`) and vendor tools (`ericsson_oss__get_correlated_alarms`, `netcracker__get_recent_changes`, `servicenow_kb__get_similar_incidents`). Set `JIRA_EMAIL`, `JIRA_API_TOKEN`, and `JIRA_BASE` on the adapter.

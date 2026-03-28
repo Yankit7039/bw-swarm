@@ -10,6 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 TEMPLATES = [
     {
+        "template_id": "stuck-order-resolution",
+        "name": "Stuck Order Resolution",
+        "image": "stuck-order-adk:latest",
+        "warm_pool_ref": "stuck-order-adk-pool",
+        "yaml_path": "templates/stuck-order-adk/stuck-order-adk.yaml",
+    },
+    {
         "template_id": "esim-activation-resolution",
         "name": "eSIM Activation Resolution",
         "image": "esim-activation-adk:latest",

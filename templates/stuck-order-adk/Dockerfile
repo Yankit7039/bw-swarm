@@ -1,21 +1,7 @@
-FROM python:3.12-slim
+# Build swarm-core first: docker build -t swarm-core:latest swarm-core/
+# Then: docker build -t stuck-order-adk:latest templates/stuck-order-adk
+# AWS: pass --build-arg BASE_IMAGE=<account>.dkr.ecr.<region>.amazonaws.com/swarm-core:latest
 
-WORKDIR /app
-
-# Install the package and its dependencies directly from pyproject.toml
-COPY pyproject.toml README.md ./
-RUN pip install --no-cache-dir .
-
-RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
-
-# Copy the rest of the application code
-COPY . .
-
-USER appuser
-
-ENV PATH="/home/appuser/.local/bin:$PATH"
-
-EXPOSE 8888
-
-# Sandbox pods run entrypoint on 8888; runtime POSTs /run with run_id + payload.
-CMD ["uvicorn", "entrypoint:app", "--host", "0.0.0.0", "--port", "8888"]
+ARG BASE_IMAGE=swarm-core:latest
+FROM ${BASE_IMAGE}
+COPY stuck-order-adk.yaml /app/workflow.yaml

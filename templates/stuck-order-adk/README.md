@@ -1,19 +1,19 @@
 # Stuck Order Resolution template
 
-One template implementation for the runtime: ADK agent + entrypoint that accepts POST /run (run_id + payload) and writes to shared Postgres (runs, run_events).
+YAML-driven workflow using the shared **[swarm-core](../../swarm-core/)** Python package (`swarm_core`). The base image is **`swarm-core:latest`** (build `swarm-core/` first); this Dockerfile only copies `stuck-order-adk.yaml` to `/app/workflow.yaml`. The pod runs `swarm_core.entrypoint`: POST `/run` (`run_id` + `payload`) and writes to shared Postgres (`runs`, `run_events`).
 
 - **Submit runs**: Use the **runtime** service: `POST /runs` with `{ "template_id": "stuck-order-resolution", "payload": { "order_id": "Ord-1" } }`.
-- **Sandbox**: Build image from this directory. Deploy warm pool from infra: `kubectl apply -f ../../infra/k8s/warmpool-stuck-order-adk.yaml` (replace `<REGISTRY>` in the file). Runtime creates SandboxClaims and POSTs /run to pods.
-- **Local test**: Set `DATABASE_URL` and `OPENROUTER_API_KEY`, then `uvicorn entrypoint:app --port 8888` and POST to `/run` with `{ "run_id": "<uuid>", "payload": { "order_id": "OH-1" } }`.
+- **Build images** (repo root):
 
-Order IDs are mapped to deterministic scenarios based on the numeric part of the ID: the last number in the string is taken (for example `OH-1`, `OH-159`, `ORDER-42`, or just `159`) and the scenario is `number % 5`. The scenarios are:
+  ```bash
+  docker build -t swarm-core:latest swarm-core/
+  docker build -t stuck-order-adk:latest templates/stuck-order-adk
+  ```
 
-- 0: provisioning timeout
-- 1: billing hold
-- 2: network hold
-- 3: pending upstream
-- 4: contradictory logs
+  Or from `infra/docker`: build `swarm-core` first, then `docker compose build stuck-order-adk` (compose uses `context: ../../templates/stuck-order-adk` and `BASE_IMAGE: swarm-core:latest`).
 
-So, for example, `OH-5` and `ORDER-10` both map to scenario 0, while `OH-1` and `OH-6` both map to scenario 1.
+- **Deploy warm pool**: `kubectl apply -f ../../infra/k8s/warmpool-stuck-order-adk.yaml` (set your registry image as needed).
 
-**Contents**: `entrypoint.py`, `workflow_runner.py`, `run_db.py` (thin Postgres client for runs/run_events), `stuck_order_agent/`, `Dockerfile`, `requirements.txt`, `.env.example`. No orchestration or job API; the runtime owns that.
+**Contents**: `stuck-order-adk.yaml` (workflow definition), `Dockerfile` (extends `swarm-core`, copies YAML only), `.env.example`.
+
+Order IDs map to deterministic adapter scenarios from the numeric part of the ID (`number % 5`).

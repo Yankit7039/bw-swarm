@@ -153,6 +153,7 @@ terraform -chdir=infra/terraform/prod output -json ecr_repository_urls
 ```
 
 `ecr_repository_urls` will be a map of:
+- `swarm-core`
 - `stuck-order-adk`
 - `swarm-adapter`
 - `swarm-runtime`
@@ -235,6 +236,7 @@ aws ecr get-login-password --region ap-southeast-1 \
 
 | Component        | Context directory       | ECR repo name      |
 |-----------------|-------------------------|--------------------|
+| swarm-core (base) | `./swarm-core`        | `swarm-core`       |
 | Runtime         | `./runtime`             | `swarm-runtime`    |
 | Admin API       | `./admin-api`           | `swarm-admin-api`  |
 | Adapter         | `./adapter`             | `swarm-adapter`    |
@@ -243,6 +245,36 @@ aws ecr get-login-password --region ap-southeast-1 \
 | Number porting ADK | `./templates/number-porting-resolution` | `number-porting-adk` |
 | Ticket email routing ADK | `./templates/ticket-email-routing` | `ticket-email-routing-adk` |
 | Network ops L1/L2 triage ADK | `./templates/network-ops-l1l2-triage` | `network-ops-l1l2-triage-adk` |
+
+### 5.0 Build swarm-core base image first
+
+Build and push **before** `stuck-order-adk` (that image `FROM`s the ECR `swarm-core` tag).
+
+#### PowerShell
+
+```powershell
+cd C:\Users\Dell\Desktop\bw\bw-swarm
+
+docker build -t swarm-core .\swarm-core
+
+docker tag swarm-core `
+  718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/swarm-core:latest
+
+docker push 718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/swarm-core:latest
+```
+
+#### Bash
+
+```bash
+cd /path/to/bw-swarm
+
+docker build -t swarm-core ./swarm-core
+
+docker tag swarm-core \
+  718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/swarm-core:latest
+
+docker push 718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/swarm-core:latest
+```
 
 ### 5.3 Example: build & push **runtime**
 
@@ -308,15 +340,23 @@ docker push 718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/swarm-adapter:late
 
 #### Stuck-order ADK
 
+Context is `./templates/stuck-order-adk`. The image extends `swarm-core` (pass the ECR URI so the base layer is pulled from your registry).
+
 ```powershell
-docker build -t stuck-order-adk .\templates\stuck-order-adk
+$ECR = "718277287766.dkr.ecr.ap-southeast-1.amazonaws.com"
+docker build `
+  --build-arg BASE_IMAGE="$ECR/swarm-core:latest" `
+  -t stuck-order-adk ./templates/stuck-order-adk
 docker tag stuck-order-adk `
   718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/stuck-order-adk:latest
 docker push 718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/stuck-order-adk:latest
 ```
 
 ```bash
-docker build -t stuck-order-adk ./templates/stuck-order-adk
+ECR="718277287766.dkr.ecr.ap-southeast-1.amazonaws.com"
+docker build \
+  --build-arg BASE_IMAGE="${ECR}/swarm-core:latest" \
+  -t stuck-order-adk ./templates/stuck-order-adk
 docker tag stuck-order-adk \
   718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/stuck-order-adk:latest
 docker push 718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/stuck-order-adk:latest

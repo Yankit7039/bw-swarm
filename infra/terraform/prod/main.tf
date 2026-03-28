@@ -71,6 +71,7 @@ module "ecr" {
   name_prefix = var.environment_prefix == "swarm-prod" ? "" : var.environment_prefix
 
   repository_names = [
+    "swarm-core",
     "stuck-order-adk",
     "esim-activation-adk",
     "number-porting-adk",

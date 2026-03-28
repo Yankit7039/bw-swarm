@@ -14,6 +14,15 @@ adapters:
   - runbook_registry
   - notification
 
+model: openrouter/qwen/qwen3.5-flash-02-23
+
+result_keys:
+  - classify_result
+  - route_result
+  - alert_message
+  - order_status
+  - resolved
+
 escalation_matrix:
   P1:
     L1: { team: Fraud Operations,        contact: fraud-ops@carrier.com,       sla_minutes: 15 }

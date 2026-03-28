@@ -30,6 +30,7 @@ endif
 
 # ── Image definitions: name:context:dockerfile ────────────────────────────────
 IMAGES = \
+  swarm-core:swarm-core:swarm-core/Dockerfile \
   swarm-runtime:.:runtime/Dockerfile \
   swarm-adapter:adapter:adapter/Dockerfile \
   swarm-admin-api:.:admin-api/Dockerfile \
@@ -118,8 +119,12 @@ _build-push:
 	  ctx=$$(echo $$entry | cut -d: -f2); \
 	  df=$$(echo $$entry | cut -d: -f3); \
 	  ecr_repo=$(ECR_BASE)/$(ECR_PREFIX)$$name; \
+	  build_args=""; \
+	  if [ "$$name" = "stuck-order-adk" ] || [ "$$name" = "esim-activation-adk" ] || [ "$$name" = "network-ops-l1l2-triage-adk" ]; then \
+	    build_args="--build-arg BASE_IMAGE=$(ECR_BASE)/$(ECR_PREFIX)swarm-core:latest"; \
+	  fi; \
 	  echo "  --> Building $$name"; \
-	  docker build -f $$df -t $$name:latest $$ctx; \
+	  docker build $$build_args -f $$df -t $$name:latest $$ctx; \
 	  docker tag $$name:latest $$ecr_repo:latest; \
 	  docker push $$ecr_repo:latest; \
 	done

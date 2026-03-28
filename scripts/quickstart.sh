@@ -65,6 +65,7 @@ kind create cluster --config infra/k8s/kind-cluster.yaml
 
 echo
 echo -e "${BLUE}==> 2. Build images${NC}"
+docker build -t swarm-core:latest swarm-core/
 docker build -t stuck-order-adk:latest templates/stuck-order-adk
 docker build -t esim-activation-adk:latest templates/esim-activation-resolution
 docker build -t number-porting-adk:latest templates/number-porting-resolution
@@ -76,6 +77,7 @@ docker build -f admin-api/Dockerfile -t swarm-admin-api:latest .
 
 echo
 echo -e "${BLUE}==> 3. Load images into Kind${NC}"
+kind load docker-image swarm-core:latest
 kind load docker-image stuck-order-adk:latest
 kind load docker-image esim-activation-adk:latest
 kind load docker-image number-porting-adk:latest

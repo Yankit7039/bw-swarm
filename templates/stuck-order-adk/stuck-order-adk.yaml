@@ -1,0 +1,156 @@
+template_id: stuck-order-resolution
+version: "1.0"
+description: >
+  Sequential stuck-order resolution — enrich context, investigate root cause,
+  attempt remediation, notify escalation owner via MCP adapters.
+
+model: openrouter/qwen/qwen3.5-flash-02-23
+
+input:
+  required:
+    - order_id
+
+adapters:
+  - amdocs_oms
+  - siebel_crm
+  - ericsson
+  - netcracker
+  - escalation_matrix
+  - notification
+
+result_keys:
+  - enrich_output
+  - investigate_output
+  - resolve_output
+  - notify_output
+
+stages:
+
+  - name: enrich
+    type: hybrid
+    steps:
+      - name: enrich
+        type: llm_agent
+        description: "Context enrichment: fetches order and customer data from BSS/CRM."
+        instruction: |
+          You are given order_id: {{ order_id }}. Fetch the full order details and the
+          customer profile associated with it. Return a structured summary of everything you find.
+          If the order does not exist, stop and report that clearly.
+
+          Use these tools:
+          - amdocs_oms__get_order_status(order_id)
+          - amdocs_oms__get_order_history(order_id, limit, offset)
+          - siebel_crm__lookup_customer(order_id, customer_id="")
+          - siebel_crm__get_account_status(customer_id)
+
+          Call amdocs_oms__get_order_status and amdocs_oms__get_order_history for the order.
+          Call siebel_crm__lookup_customer to fetch the CRM profile; then optionally call siebel_crm__get_account_status.
+        tool_filter:
+          - amdocs_oms__get_order_status
+          - amdocs_oms__get_order_history
+          - siebel_crm__lookup_customer
+          - siebel_crm__get_account_status
+        output_key: enrich_output
+
+  - name: investigate
+    type: hybrid
+    steps:
+      - name: investigate
+        type: llm_agent
+        description: "Investigate and classify root cause of stuck order."
+        instruction: |
+          You are a telecom order forensics agent. You have been given a stuck order with order_id: {{ order_id }}.
+          Use your tools to investigate why it is stuck.
+
+          Work through this checklist:
+          1. Fetch OMS status + history:
+             - amdocs_oms__get_order_status(order_id={{ order_id }})
+             - amdocs_oms__get_order_history(order_id={{ order_id }}, limit=20, offset=0) and paginate if has_more is true
+          2. Check billing flags/holds:
+             - siebel_crm__get_billing_flags(order_id={{ order_id }})
+          3. Check network/port status and activation logs:
+             - ericsson__get_port_status(order_id={{ order_id }}, msisdn="") (or use msisdn from enrich_output if available)
+             - ericsson__get_activation_logs(order_id={{ order_id }}, hours=24, msisdn="")
+             - ericsson__get_network_inventory(msisdn)
+          4. Check downstream provisioning view and dependency map:
+             - netcracker__get_provisioning_status(order_id={{ order_id }})
+             - netcracker__get_dependency_map(order_id={{ order_id }})
+          5. For any opaque codes from OMS/logs, call:
+             - amdocs_oms__get_error_codes(code)
+          6. Determine which department owns the fix.
+
+          Each conclusion must cite specific evidence from tool results. If two systems contradict each other, note it and reason about which is authoritative.
+
+          Before producing your final output, your confidence must reach 0.85 or above. After each tool call, assess confidence; if below 0.85, get more evidence.
+
+          When confident, produce: root_cause, root_cause_category, department_owner, severity, confidence, resolution_hint, auto_resolvable.
+        tool_filter:
+          - amdocs_oms__get_order_status
+          - amdocs_oms__get_error_codes
+          - amdocs_oms__get_order_history
+          - siebel_crm__get_billing_flags
+          - ericsson__get_port_status
+          - ericsson__get_activation_logs
+          - ericsson__get_network_inventory
+          - netcracker__get_provisioning_status
+          - netcracker__get_dependency_map
+        output_key: investigate_output
+
+  - name: resolve
+    type: hybrid
+    steps:
+      - name: resolve
+        type: llm_agent
+        description: "Attempt automatic resolution of the stuck order."
+        instruction: |
+          You are a telecom remediation agent. The stuck order has order_id: {{ order_id }}. Based on the investigation findings in {{ investigate_output }},
+          attempt to resolve the stuck order using your tools.
+
+          Follow the resolution_hint from the investigation and what worked in similar cases (from get_case_details).
+
+          Do not assume the first remediation works. Always check amdocs_oms__get_order_status after each action. If status has not moved to completed,
+          try the next action. Only declare failure after exhausting all available actions. Poll at least once between each action.
+
+          For contradictory evidence (logs say done, status stuck): provisioning retry will not help; check billing and run force_billing_reconcile.
+
+          Available remediation tools:
+          - amdocs_oms__retry_order(order_id)
+          - ericsson__retry_activation(order_id, msisdn="")
+
+          After each tool result, write 2-3 sentences of reasoning before deciding the next action.
+        tool_filter:
+          - amdocs_oms__retry_order
+          - amdocs_oms__get_order_status
+          - ericsson__retry_activation
+        output_key: resolve_output
+
+  - name: notify
+    type: hybrid
+    steps:
+      - name: notify
+        type: llm_agent
+        description: "Notify escalation owner by email."
+        instruction: |
+          You are composing an escalation email for a telecom operations engineer.
+
+          Use the context from {{ enrich_output }}, {{ investigate_output }}, and {{ resolve_output }}.
+
+          First, look up the right owner for the department and severity using escalation_matrix__lookup with department
+          normalized to one of: billing, porting, network_provisioning, field_ops (map department_owner from investigation to the closest key).
+
+          Then write a concise email (under 200 words) covering:
+          - What the order is and who the customer is
+          - Root cause and key evidence
+          - What was attempted and the outcome
+          - Numbered list of recommended next actions (max 3)
+
+          If you need customer contact info, call siebel_crm__get_contact_details(customer_id) (customer_id should be available in enrich_output).
+
+          Then send the alert using notification__send_alert(to, subject, body) with the contact email from escalation_matrix__lookup and your composed subject/body.
+          Use only data from the inputs provided.
+        tool_filter:
+          - siebel_crm__get_contact_details
+          - siebel_crm__get_service_requests
+          - escalation_matrix__lookup
+          - notification__send_alert
+        output_key: notify_output
