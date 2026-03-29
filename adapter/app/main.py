@@ -1,13 +1,22 @@
 import contextlib
+import logging
 import os
 
 from fastapi import FastAPI
 
 from app.mcp_server import create_mcp_app, get_mcp_session_manager
+from app.tool_registry_db import ensure_schema_and_upsert_tools
+
+logger = logging.getLogger(__name__)
 
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        await ensure_schema_and_upsert_tools()
+    except Exception as e:
+        logger.error("tool registry: startup sync failed: %s", e)
+
     session_manager = get_mcp_session_manager()
     if session_manager is None:
         yield

@@ -10,6 +10,12 @@ from app.models.responses import AdapterResponse, ToolMeta
 
 
 def send_email(to: str, subject: str, body: str) -> dict:
+    """AgentMail: Send outbound email from inbox
+
+    Sends HTML/text via the AgentMail SDK from the configured inbox. When
+    AGENTMAIL_API_KEY or AGENTMAIL_INBOX_ID is unset, returns a successful mock
+    with synthetic message_id and thread_id for local testing.
+    """
     api_key = (os.environ.get("AGENTMAIL_API_KEY") or "").strip()
     inbox_id = (os.environ.get("AGENTMAIL_INBOX_ID") or "").strip()
     to_addr = (to or "").strip()

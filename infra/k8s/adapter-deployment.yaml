@@ -28,6 +28,11 @@ spec:
           env:
             - name: MCP_MOUNT_PATH
               value: "/mcp"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: database-url
             - name: AGENTMAIL_API_KEY
               valueFrom:
                 secretKeyRef:

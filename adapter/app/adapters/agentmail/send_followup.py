@@ -26,9 +26,10 @@ def send_followup(
     thread_id: str,
     message_id: str,
 ) -> dict:
-    """
-    Send a follow-up in the same conversation: explicit `to` (engineer), plus In-Reply-To/References
-    from the prior message so clients thread correctly. Do not use the reply endpoint for outbound anchors.
+    """AgentMail: Send follow-up in thread
+
+    Sends using explicit `to` (engineer) plus In-Reply-To/References from the prior
+    message so clients thread correctly. Does not use the reply endpoint for outbound anchors.
     """
     api_key = (os.environ.get("AGENTMAIL_API_KEY") or "").strip()
     inbox_id = (os.environ.get("AGENTMAIL_INBOX_ID") or "").strip()
