@@ -1,6 +1,12 @@
 template_id: ticket-email-routing
 version: "1.0"
-description: Fetches ticket by order, resolves escalation contact, drafts email, sends via AgentMail.
+description: >
+  Fetches a Jira issue by order id (issue key), transitions status, LLM-routes to an
+  escalation department, resolves the escalation contact, drafts internal handoff email,
+  sends via AgentMail, and supports scheduled follow-ups and engineer replies in-thread
+  (AgentMail lifecycle via follow_up.mode: agentmail).
+
+model: openrouter/qwen/qwen3.5-flash-02-23
 
 input:
   required:
@@ -10,6 +16,23 @@ adapters:
   - jira
   - escalation_matrix
   - agentmail
+
+result_keys:
+  - ticket_details
+  - contact
+  - email_draft
+  - email_result
+  - current_ticket
+  - resolved
+  - followup_draft
+  - reply_result
+  - engineer_reply_draft
+  - engineer_reply_result
+
+follow_up:
+  mode: agentmail
+  limit: 3
+  interval_seconds: 120
 
 stages:
 
@@ -91,7 +114,10 @@ stages:
 
           Respond ONLY as JSON, no markdown, no extra text:
           {"subject": "...", "body": "..."}
-        input_keys: [order_id, ticket_details, contact]
+        input_keys:
+          - order_id
+          - ticket_details
+          - contact
         output_key: email_draft
         fallback_state:
           subject: "Escalation — order {{ order_id }} needs attention"

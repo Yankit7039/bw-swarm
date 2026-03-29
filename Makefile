@@ -120,7 +120,7 @@ _build-push:
 	  df=$$(echo $$entry | cut -d: -f3); \
 	  ecr_repo=$(ECR_BASE)/$(ECR_PREFIX)$$name; \
 	  build_args=""; \
-	  if [ "$$name" = "stuck-order-adk" ] || [ "$$name" = "esim-activation-adk" ] || [ "$$name" = "network-ops-l1l2-triage-adk" ]; then \
+	  if [ "$$name" = "stuck-order-adk" ] || [ "$$name" = "esim-activation-adk" ] || [ "$$name" = "network-ops-l1l2-triage-adk" ] || [ "$$name" = "ticket-email-routing-adk" ]; then \
 	    build_args="--build-arg BASE_IMAGE=$(ECR_BASE)/$(ECR_PREFIX)swarm-core:latest"; \
 	  fi; \
 	  echo "  --> Building $$name"; \

@@ -1,0 +1,22 @@
+# Repo-root Docker builds (e.g. templates/stuck-order-adk) — keep context small
+.git
+.gitignore
+.cursor
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+**/node_modules
+**/dist
+**/build
+**/.pytest_cache
+**/.mypy_cache
+**/*.egg-info
+admin-console
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/.terraform
+docs
+infra/terraform/**/*.tfstate*
+run-*.json
+agent-transcripts
