@@ -10,6 +10,7 @@ import {
   Headphones,
   Database as DatabaseIcon,
   UserPlus,
+  Puzzle,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { useTemplates } from '../hooks/useTemplates'
@@ -156,6 +157,15 @@ export const Templates = () => {
               </button>
             </div>
             <button
+              type="button"
+              onClick={() => navigate('/adapters')}
+              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-50 transition-all"
+            >
+              <Puzzle className="w-4 h-4" />
+              <span>Browse Adapters</span>
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/templates/new')}
               className="flex items-center gap-2 bg-primary text-white px-5 py-2 rounded-lg font-bold text-sm shadow-lg shadow-primary/20 hover:brightness-110 transition-all"
             >

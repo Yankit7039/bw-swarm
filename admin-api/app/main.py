@@ -6,6 +6,7 @@ from app.routers import health as health_router
 from app.routers import templates as templates_router
 from app.routers import runs as runs_router
 from app.routers import webhooks as webhooks_router
+from app.routers import adapters as adapters_router
 
 
 app = FastAPI(
@@ -31,3 +32,4 @@ app.include_router(health_router.router)
 app.include_router(templates_router.router)
 app.include_router(runs_router.router)
 app.include_router(webhooks_router.router)
+app.include_router(adapters_router.router)
