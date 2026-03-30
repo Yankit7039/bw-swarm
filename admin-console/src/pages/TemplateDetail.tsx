@@ -6,7 +6,7 @@ import {
   Rocket,
   CheckCircle,
   Save,
-  // AlertCircle,
+  AlertCircle,
   // ChevronRight,
   // Activity,
   // Scan,
@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { useTemplate, useUpdateTemplateWorkflowYaml } from '../hooks/useTemplates'
+import { validateTemplateYaml } from '../utils/workflowYamlValidation'
 
 function apiErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -40,7 +41,7 @@ function apiErrorMessage(err: unknown): string {
   return 'Save failed'
 }
 
-// YAML syntax highlighting helper - preserves line structure
+// YAML syntax highlighting helper - preserves line structure (display only)
 function highlightYAML(yaml: string): string {
   return yaml
     .split('\n')
@@ -318,12 +319,15 @@ export function TemplateDetail() {
   const [isValidating, setIsValidating] = useState(false)
   const [isDeploying, setIsDeploying] = useState(false)
   const [validationStatus, setValidationStatus] = useState<'idle' | 'valid' | 'invalid'>('idle')
+  const [validationMessage, setValidationMessage] = useState<string | null>(null)
   const [showWebhookModal, setShowWebhookModal] = useState(false)
   const [copiedUrl, setCopiedUrl] = useState(false)
   const [copiedPayload, setCopiedPayload] = useState(false)
 
   useEffect(() => {
     setIsEditing(false)
+    setValidationStatus('idle')
+    setValidationMessage(null)
   }, [id])
 
   const yamlContent = useMemo(
@@ -343,19 +347,37 @@ export function TemplateDetail() {
   const handleStartEdit = () => {
     setDraftYaml(yamlContent)
     updateYaml.reset()
+    setValidationStatus('idle')
+    setValidationMessage(null)
     setIsEditing(true)
   }
 
   const handleCancelEdit = () => {
     setIsEditing(false)
     updateYaml.reset()
+    setValidationStatus('idle')
+    setValidationMessage(null)
   }
 
   const handleSaveYaml = () => {
     if (!template) return
+    const check = validateTemplateYaml(draftYaml)
+    if (!check.ok) {
+      setValidationStatus('invalid')
+      setValidationMessage(check.message)
+      return
+    }
+    setValidationStatus('valid')
+    setValidationMessage(null)
     updateYaml.mutate(
       { id: template.id, workflow_yaml: draftYaml },
-      { onSuccess: () => setIsEditing(false) }
+      {
+        onSuccess: () => {
+          setIsEditing(false)
+          setValidationStatus('idle')
+          setValidationMessage(null)
+        },
+      }
     )
   }
 
@@ -450,11 +472,20 @@ export function TemplateDetail() {
   }
 
   const handleValidate = () => {
+    const source = isEditing ? draftYaml : yamlContent
     setIsValidating(true)
-    setTimeout(() => {
+    setValidationMessage(null)
+    window.setTimeout(() => {
+      const result = validateTemplateYaml(source)
       setIsValidating(false)
-      setValidationStatus('valid')
-    }, 1500)
+      if (result.ok) {
+        setValidationStatus('valid')
+        setValidationMessage(null)
+      } else {
+        setValidationStatus('invalid')
+        setValidationMessage(result.message)
+      }
+    }, 120)
   }
 
   const handleDeploy = () => {
@@ -550,6 +581,14 @@ export function TemplateDetail() {
                 Valid YAML
               </div>
             )}
+            {validationStatus === 'invalid' && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 rounded-lg text-xs font-semibold max-w-[min(24rem,40vw)]">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span className="truncate" title={validationMessage ?? undefined}>
+                  Invalid YAML
+                </span>
+              </div>
+            )}
             <button
               onClick={() => setShowWebhookModal(true)}
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-lg transition"
@@ -624,6 +663,15 @@ export function TemplateDetail() {
             className="shrink-0 px-6 py-2.5 bg-rose-50 border-b border-rose-100 text-sm text-rose-800"
           >
             {apiErrorMessage(updateYaml.error)}
+          </div>
+        )}
+
+        {validationStatus === 'invalid' && validationMessage && (
+          <div
+            role="alert"
+            className="shrink-0 px-6 py-2.5 bg-rose-50 border-b border-rose-100 text-sm text-rose-800 font-mono whitespace-pre-wrap break-words"
+          >
+            {validationMessage}
           </div>
         )}
 
