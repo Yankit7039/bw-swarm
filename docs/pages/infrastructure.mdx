@@ -1,0 +1,83 @@
+---
+title: Infrastructure & Kubernetes
+description: EKS, warm pools, SandboxTemplate and SandboxWarmPool, External Secrets, ingress, and manifest apply order.
+icon: boxes
+---
+
+# Infrastructure & Kubernetes
+
+## AWS (Terraform)
+
+**Path:** `infra/terraform/prod/`
+
+Typical resources:
+
+- **VPC** — public and private subnets
+- **EKS** — managed node groups (e.g. **t3.medium** class)
+- **RDS** — Postgres for **`templates`**, **`runs`**, **`run_events`**, registry, threads
+- **ECR** — images: **swarm-core**, template tags, **swarm-adapter**, **swarm-runtime**, **swarm-admin-api**
+- **Secrets Manager** — DB URL, OpenRouter, Jira, AgentMail webhook secrets → synced to Kubernetes
+- **Helm** — **AWS Load Balancer Controller**, **External Secrets Operator**
+- **ACM + Route 53** — TLS for ingress hostnames
+
+Use **`make deploy ENV=dev|prod`** from the repo root for a full rollout, or follow **`AWS_QUICKSTART.md`**.
+
+## Agent-sandbox CRDs
+
+SWARM relies on **agent-sandbox** (Kubernetes extensions):
+
+- **`SandboxTemplate`** — defines the **pod template** (image, env, probes, resources) for a **pool name**.
+- **`SandboxWarmPool`** — how many **idle** pods to keep for that template.
+- **`SandboxClaim`** — created by the **runtime** when a run needs a pod; the controller **binds** a warm pod and exposes its address for **`POST /run`**.
+
+## Apply order (manual)
+
+<Steps>
+  <div>
+    Apply **core manifest** — controller + CRDs (`agent-sandbox-manifest.yaml`).
+  </div>
+  <div>
+    Apply **extensions manifest** — SandboxTemplate / WarmPool CRDs (`agent-sandbox-extensions.yaml`).
+  </div>
+  <div>
+    **Wait** for CRDs to be **established**.
+  </div>
+  <div>
+    Apply workloads: external secrets, RBAC, **adapter**, **runtime**, **admin-api**, then **warm pool** manifests, then **ingress**.
+  </div>
+</Steps>
+
+See **`infra/k8s-aws/README.md`** for file names and details.
+
+<Callout type="danger" title="Wrong manifests for EKS">
+  **`infra/k8s/`** is for local / Kind development. **Do not** apply **`infra/k8s/`** to EKS — use **`infra/k8s-aws/`** only.
+</Callout>
+
+## Warm pool manifests (`infra/k8s-aws/`)
+
+| File | Template pool |
+|------|----------------|
+| `warmpool-stuck-order-adk.yaml` | Stuck order resolution |
+| `warmpool-esim-activation-adk.yaml` | eSIM activation |
+| `warmpool-number-porting-adk.yaml` | Number porting |
+| `warmpool-ticket-email-routing-adk.yaml` | Ticket email routing |
+| `warmpool-network-ops-l1l2-triage-adk.yaml` | Network ops L1/L2 |
+
+Each file combines **`SandboxTemplate`** + **`SandboxWarmPool`**; ECR image URLs must match your account.
+
+## Pod environment (typical)
+
+Warm pools inject:
+
+- **`DATABASE_URL`**, **`OPENROUTER_API_KEY`** from **`adk-secrets`**
+- **`ADAPTER_URL`** (`http://adapter:8080`)
+- **`ENTRYPOINT_PORT`** (`8888`)
+
+## Ingress
+
+**`ingress.yaml`** / **`ingress-admin.yaml`** expose **runtime** and **admin-api** (or console) via **ALB**; hostnames come from Terraform outputs and DNS.
+
+## Related reading
+
+- [AWS deployment](/aws-deployment)
+- [Runtime service](/service-runtime)

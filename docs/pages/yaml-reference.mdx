@@ -1,0 +1,68 @@
+---
+title: Workflow YAML reference
+description: Top-level WorkflowSchema fields — template_id, stages, follow_up, adapters, result_keys — validated by swarm-core.
+icon: file-code
+---
+
+# Workflow YAML reference
+
+Workflow files are validated by **`WorkflowSchema`** in **`swarm_core/schema.py`**.
+
+<Callout type="warning" title="Invalid YAML fails fast">
+  Invalid YAML fails at **pod startup** when **`YAML_PATH`** exists, or at the **start of each run** in DB mode. Fix the file or **`templates.workflow_yaml`** before expecting successful runs.
+</Callout>
+
+## Top-level fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| **`template_id`** | string | **Required.** Stable ID; must match **`templates.template_id`** in Postgres. |
+| **`version`** | string | Default **`1.0`**. |
+| **`description`** | string | Human-readable summary. |
+| **`model`** | string | Optional. LLM id (e.g. OpenRouter route). Falls back to env **`OPENROUTER_MODEL`**. |
+| **`input`** | object | **`required`**: list of payload field names. |
+| **`adapters`** | list of string | Declared adapter namespaces (documentation / ops; not enforced by runner logic). |
+| **`tool_labels`** | map | Optional **`mcp_tool_name` → short label** for **`run_events`**. |
+| **`result_keys`** | list of string | Keys to copy from final session state into **`runs.result`**. |
+| **`follow_up`** | object | See below. Default **`mode: none`**. |
+| **`escalation_matrix`** | map | Optional metadata (e.g. human-readable matrix); may pair with **`escalation_matrix__lookup`** tool. |
+| **`stages`** | list | **Required**, non-empty. Each item is a **stage** (see [Stages and steps](/stages-and-steps)). |
+
+## `follow_up` block
+
+<Callout type="info" title="Follow-up poller and YAML">
+  Runtime’s follow-up poller does **not** read YAML directly; it uses DB columns **`followup_due_at`** and **`status`**. The **`follow_up`** block in YAML still enables AgentMail behavior in swarm-core.
+</Callout>
+
+| Field | Type | Description |
+|-------|------|-------------|
+| **`mode`** | `"none"` \| `"agentmail"` | **`agentmail`** enables follow-up persistence and runtime poller. |
+| **`limit`** | int | Max proactive follow-up emails (default **3**). |
+| **`interval_seconds`** | int | Delay before next follow-up / timer reset (default **120**). |
+| **`email_result_key`** | string | Session key holding send result (default **`email_result`**). |
+
+## Minimal example
+
+```yaml
+template_id: example-template
+version: "1.0"
+description: Minimal hybrid stage
+input:
+  required:
+    - order_id
+result_keys:
+  - summary
+stages:
+  - name: main
+    type: hybrid
+    steps:
+      - type: llm_agent
+        name: summarize
+        instruction: "Summarize order {{ order_id }} in one sentence."
+        output_key: summary
+```
+
+## Related reading
+
+- [Stages and steps](/stages-and-steps) — `mcp_call`, `llm_agent`, `condition`, `poll_loop`
+- [Follow-up lifecycle](/followup-lifecycle) — AgentMail behavior

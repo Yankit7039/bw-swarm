@@ -1,0 +1,135 @@
+---
+title: Database schema
+description: Postgres tables templates, runs, run_events, adapter_tool_registry, communication_threads, pending_inbound — run statuses and event types.
+icon: database
+---
+
+# Database schema
+
+All services share **one Postgres** database.
+
+<Callout type="info" title="Migrations">
+  **Runtime** owns migrations under **`runtime/db/migrations/`** — apply them via the runtime startup path or your deployment process.
+</Callout>
+
+## `templates`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| **`template_id`** | TEXT PK | Matches workflow **`template_id`**. |
+| **`name`** | TEXT | Display name. |
+| **`image`** | TEXT | Container image reference. |
+| **`warm_pool_ref`** | TEXT | Pool name for SandboxWarmPool binding. |
+| **`config`** | JSONB | Extra config. |
+| **`workflow_yaml`** | TEXT | Optional inline YAML (pods load if no file on disk). |
+| **`created_at`**, **`updated_at`** | TIMESTAMPTZ | Audit. |
+
+## `runs`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| **`run_id`** | UUID PK | |
+| **`template_id`** | TEXT FK | → **`templates`**. |
+| **`status`** | TEXT | See below. |
+| **`payload`** | JSONB | Input payload from `POST /runs` or webhook. |
+| **`result`** | JSONB | Final structured output (when completed). |
+| **`error_message`** | TEXT | Failure reason. |
+| **`created_at`**, **`updated_at`**, **`completed_at`** | TIMESTAMPTZ | |
+| **`assigned_pod`** | TEXT | Pod hostname or id (operational). |
+| **`sandbox_claim_name`** | TEXT | Claim resource name. |
+| **`claim_deleted_at`** | TIMESTAMPTZ | Reconciler cleanup. |
+| **`state`** | JSONB | AgentMail / follow-up state blob. |
+| **`followup_due_at`** | TIMESTAMPTZ | Next follow-up fire time. |
+| **`follow_up_in_progress`** | BOOLEAN | Guard against concurrent follow-up. |
+
+### Run status values
+
+Common values (not all enforced as an enum in SQL):
+
+<Tabs items={["Active statuses", "Follow-up & special"]}>
+  <div>
+    | Status | Meaning |
+    |--------|---------|
+    | **`pending`** | Run created; sandbox not finished dispatching. |
+    | **`running`** | Pod executing workflow. |
+    | **`completed`** | Success. |
+    | **`failed`** | Error or validation failure. |
+  </div>
+  <div>
+    | Status | Meaning |
+    |--------|---------|
+    | **`waiting_for_followup`** | AgentMail: timer set; **`followup_due_at`** populated. |
+    | **`exhausted`** | Follow-up limit reached; ticket may still be open. |
+    | **`processing_reply`** | Transitional: run claimed for engineer-reply workflow while pod executes. |
+  </div>
+</Tabs>
+
+## `run_events`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| **`id`** | SERIAL PK | |
+| **`run_id`** | UUID FK | → **`runs`** (CASCADE delete). |
+| **`event_type`** | TEXT | Category (see below). |
+| **`event`** | TEXT | Short human-readable line. |
+| **`payload`** | JSONB | Structured detail (tool args, LLM snippet metadata, etc.). |
+| **`created_at`** | TIMESTAMPTZ | |
+
+### Event types (`event_type`)
+
+Emitted by **swarm-core** / **runtime** (non-exhaustive):
+
+| `event_type` | Source |
+|--------------|--------|
+| **`workflow_started`**, **`workflow_completed`** | `workflow_runner`, `followup_agentmail` |
+| **`workflow_stage_started`**, **`workflow_stage_completed`** | `agent.py` |
+| **`agent_started`**, **`agent_completed`** | `agent.py` |
+| **`tool_started`**, **`tool_completed`** | `yaml_runner`, ADK stream in followup |
+| **`llm_message`** | `workflow_runner`, `followup_agentmail` |
+| **`condition_evaluated`** | `agent.py` |
+| **`poll_iteration_started`**, **`poll_iteration_completed`** | `agent.py` |
+| **`escalation_triggered`** | `agent.py` |
+| **`workflow_error`** | `followup_agentmail` |
+| **`followup_scheduled`**, **`followup_sent`**, **`followup_exhausted`** | `followup_agentmail` |
+| **`ticket_resolved`** | `followup_agentmail` |
+| **`pending_inbound_drained`** | `followup_agentmail` |
+| **`engineer_reply_after_exhausted`** | `followup_agentmail` |
+| **`jira_webhook`** | `runtime/app.py` |
+| **`agentmail_inbound`** | `runtime/app.py` |
+
+## `adapter_tool_registry`
+
+Owned by **adapter** startup (**`adapter/app/tool_registry_db.py`**):
+
+| Column | Type | Description |
+|--------|------|-------------|
+| **`adapter_name`**, **`tool_name`** | TEXT | PK composite. |
+| **`mcp_tool_name`** | TEXT UNIQUE | Full **`adapter__tool`**. |
+| **`description`** | TEXT | From docstring. |
+| **`input_schema`** | JSONB | Parameter metadata. |
+| **`docstring_warnings`** | JSONB | e.g. missing docs. |
+| **`updated_at`** | TIMESTAMPTZ | |
+
+## `communication_threads`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| **`channel_thread_id`** | TEXT PK | e.g. AgentMail **thread_id**. |
+| **`run_id`** | UUID FK | |
+| **`template_id`** | TEXT | |
+| **`created_at`** | TIMESTAMPTZ | |
+
+## `pending_inbound_interactions`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| **`id`** | BIGSERIAL PK | |
+| **`channel_thread_id`** | TEXT | |
+| **`payload`** | JSONB | Raw inbound. |
+| **`processed`** | BOOLEAN | |
+| **`created_at`** | TIMESTAMPTZ | |
+
+## Related reading
+
+- [Runtime service](/service-runtime)
+- [Follow-up lifecycle](/followup-lifecycle)

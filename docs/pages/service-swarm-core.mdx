@@ -1,0 +1,64 @@
+---
+title: swarm-core (template pod)
+description: YAML-driven FastAPI pod — POST /run, ADK SwarmHybridAgent, workflow_runner, YAML from disk or DB, OpenRouter, MCP to adapter.
+icon: box
+---
+
+# swarm-core (template pod)
+
+**Code:** `swarm-core/swarm_core/` — installed as a Python package; **Dockerfile** runs **`uvicorn swarm_core.entrypoint:app`**.
+
+**Role:** Shared **runtime** for most templates: **validate YAML**, accept **`POST /run`**, execute **Google ADK** (`App`, `Runner`, `LlmAgent`, `McpToolset`) with **OpenRouter** (via LiteLLM), call tools via **MCP HTTP** to the **adapter**, and write **runs** / **run_events** to **Postgres**.
+
+<Callout type="warning" title="Required environment">
+  **`OPENROUTER_API_KEY`** and **`DATABASE_URL`** are **required** — the pod fails at startup if either is missing.
+</Callout>
+
+## HTTP API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| **POST** | `/run` | **202** — body `{ "run_id": "<uuid>", "payload": { ... } }`. Schedules **`run_workflow`** in background. |
+| **GET** | `/health` | `{ "status": "ok" }`. |
+
+## Key modules
+
+| Module | Responsibility |
+|--------|----------------|
+| **`entrypoint.py`** | FastAPI app, **`YAML_PATH`**, lifespan validation if file exists. |
+| **`workflow_runner.py`** | Resolve YAML (file or **`fetch_workflow_yaml`**), validate, **AgentMail** vs standard branch, ADK loop, **`insert_run_event`**, **`update_run_status`**. |
+| **`agent.py`** | **`SwarmHybridAgent`** — interprets **stages** and **steps**, MCP session, **`llm_agent`** sub-agents with **`tool_filter`**. |
+| **`yaml_runner.py`** | Templating, **`execute_mcp_call`**, conditions, JSON helpers. |
+| **`schema.py`** | **`WorkflowSchema`** and step models. |
+| **`followup_agentmail.py`** | AgentMail-specific persistence and events. |
+| **`run_db.py`** | Async SQLAlchemy helpers for **`runs`**, **`run_events`**, threads, pending inbound. |
+
+## Environment variables
+
+<Callout type="tip" title="File vs DB workflow YAML">
+  If **`YAML_PATH`** (default **`/app/workflow.yaml`**) is **missing**, YAML is loaded from **`templates.workflow_yaml`** per run (DB mode). If the file **exists**, it is validated at container startup.
+</Callout>
+
+| Variable | Default / notes |
+|----------|-------------------|
+| **`OPENROUTER_API_KEY`** | **Required.** |
+| **`DATABASE_URL`** | **Required** (`postgresql+asyncpg://...`). |
+| **`YAML_PATH`** | Default **`/app/workflow.yaml`**. If missing, YAML loaded from **`templates.workflow_yaml`** per run. |
+| **`ADAPTER_URL`** | Default **`http://adapter:8080`** — MCP at **`{ADAPTER_URL}/mcp`**. |
+| **`OPENROUTER_API_BASE`** | OpenRouter API base. |
+| **`OPENROUTER_MODEL`** | Default model if YAML omits **`model`**. |
+| **`ENTRYPOINT_PORT`** | Uvicorn port (default **8888**). |
+
+## Build
+
+```bash
+docker build -t swarm-core:latest ./swarm-core
+```
+
+Template images use **`FROM swarm-core`** (or **`ARG BASE_IMAGE`**) and **`COPY`** workflow YAML.
+
+## Related reading
+
+- [Workflow YAML reference](/yaml-reference)
+- [Stages and steps](/stages-and-steps)
+- [Adapter service](/service-adapter)

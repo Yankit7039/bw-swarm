@@ -1,0 +1,124 @@
+---
+title: Tome components (authors)
+description: A showcase of every built-in MDX component available in Tome. Hidden from SWARM nav — for doc authors only.
+icon: puzzle
+hidden: true
+---
+
+# Components
+
+Tome ships with a set of built-in components you can use in any `.mdx` file. No imports required — just use them directly in your content.
+
+---
+
+## Callout
+
+Callouts draw attention to important information. There are four types: **info**, **tip**, **warning**, and **danger**.
+
+<Callout type="info" title="Information">
+  This is an **info** callout. Use it to highlight useful context or background details.
+</Callout>
+
+<Callout type="tip" title="Helpful Tip">
+  This is a **tip** callout. Great for best practices and pro tips.
+</Callout>
+
+<Callout type="warning" title="Warning">
+  This is a **warning** callout. Use it when the reader should proceed with caution.
+</Callout>
+
+<Callout type="danger" title="Danger">
+  This is a **danger** callout. Reserve it for critical warnings about destructive actions.
+</Callout>
+
+---
+
+## Tabs
+
+Tabs let you present multiple variants of content — perfect for showing code in different languages or instructions for different platforms.
+
+<Tabs items={["npm", "yarn", "pnpm"]}>
+  <div>
+    ```bash
+    npm install @tomehq/cli
+    ```
+  </div>
+  <div>
+    ```bash
+    yarn add @tomehq/cli
+    ```
+  </div>
+  <div>
+    ```bash
+    pnpm add @tomehq/cli
+    ```
+  </div>
+</Tabs>
+
+---
+
+## Card & CardGroup
+
+Cards are great for linking to related pages or showcasing features in a visual grid.
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" icon="🚀" href="/quickstart">
+    Set up your first Tome project and start writing docs in minutes.
+  </Card>
+  <Card title="Configuration" icon="⚙️">
+    Customize themes, navigation, and site metadata in tome.config.js.
+  </Card>
+  <Card title="Markdown & MDX" icon="📝">
+    Write pages in standard Markdown or use MDX for interactive components.
+  </Card>
+  <Card title="Deployment" icon="🌐">
+    Deploy your static site to Vercel, Netlify, Cloudflare Pages, or any host.
+  </Card>
+</CardGroup>
+
+---
+
+## Steps
+
+Steps guide the reader through a sequential process with numbered indicators.
+
+<Steps>
+  <div>
+    **Create a new project**
+
+    Run `tome init my-docs` to scaffold a new documentation project with all the starter files.
+  </div>
+  <div>
+    **Install dependencies**
+
+    Navigate into your project directory and run `npm install` to install all required packages.
+  </div>
+  <div>
+    **Start writing**
+
+    Open `pages/index.md` in your editor, make changes, and see them reflected instantly in the dev server.
+  </div>
+  <div>
+    **Deploy to production**
+
+    Run `npm run build` and upload the `out/` directory to any static hosting provider.
+  </div>
+</Steps>
+
+---
+
+## Accordion
+
+Accordions let you hide content behind a collapsible header — useful for FAQs, optional details, or long reference sections.
+
+<Accordion title="What file formats does Tome support?">
+  Tome supports **.md** (Markdown) and **.mdx** (Markdown with JSX) files. Markdown files are processed with syntax highlighting, GFM tables, and more. MDX files can additionally use React components inline.
+</Accordion>
+
+<Accordion title="Do I need to import components in MDX files?">
+  No. All built-in components (Callout, Tabs, Card, CardGroup, Steps, Accordion) are automatically available in every `.mdx` file. Just use them directly in your content.
+</Accordion>
+
+<Accordion title="How do I add custom components?">
+  You can create your own React components and use them in `.mdx` files by importing them at the top of the file. Built-in components do not require imports.
+</Accordion>

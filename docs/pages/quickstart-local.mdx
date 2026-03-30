@@ -1,0 +1,137 @@
+---
+title: Running SWARM locally
+description: Docker Compose for Postgres and runtime, building swarm-core and template images, and triggering a run.
+icon: terminal
+---
+
+# Running SWARM locally
+
+This guide gets **Postgres**, the **runtime**, and optional **template pods** running on your machine. Full **MCP tool** execution also needs the **adapter** service (run separately or use Kubernetes — see [AWS deployment](/aws-deployment)).
+
+<Callout type="warning" title="Adapter not included in Compose">
+  **Compose does not start the adapter.** For workflows that call MCP tools, run the **adapter** container against the same `DATABASE_URL` or deploy the full stack on **Kind/EKS** where adapter is a first-class service.
+</Callout>
+
+## Prerequisites
+
+- **Docker** and **Docker Compose**
+- **Python 3.11+** if you run services outside containers
+- **Node.js 18+** for the [admin console](/architecture) (`admin-console/`)
+- An **OpenRouter API key** for LLM calls in template pods (`OPENROUTER_API_KEY`)
+- **kubectl** + **Kind** (optional) if you test agent-sandbox locally
+
+<Steps>
+  <div>
+    **Build the swarm-core base image**
+
+    Template images depend on **`swarm-core:latest`**:
+
+    ```bash
+    # From repo root
+    docker build -t swarm-core:latest ./swarm-core
+    ```
+  </div>
+  <div>
+    **Start Postgres and runtime**
+
+    The compose file is **`infra/docker/docker-compose.yml`** (paths relative to repo root):
+
+    ```bash
+    cd infra/docker
+    docker compose up -d postgres runtime
+    ```
+
+    - **Postgres**: `localhost:5432`, user/password/db **`swarm`**
+    - **Runtime**: `http://localhost:8000`
+
+    The runtime runs **migrations** on startup (`runtime/db/migrations/`), including a **seed** for the **stuck-order-resolution** template (`002_seed_stuck_order_template.sql`).
+  </div>
+  <div>
+    **Optional: template pod services**
+
+    Compose can also build **stuck-order-adk** and **esim-activation-adk** (requires `swarm-core:latest` first):
+
+    ```bash
+    export OPENROUTER_API_KEY="sk-or-v1-..."
+    docker compose up -d stuck-order-adk esim-activation-adk
+    ```
+
+    - Stuck order pod: host port **8888** → container **8888**
+    - eSIM pod: host port **8889** → container **8888**
+  </div>
+  <div>
+    **Create a run**
+
+    <Tabs items={["Linux / macOS (bash)", "Windows (PowerShell)"]}>
+      <div>
+        ```bash
+        curl -s -X POST http://localhost:8000/runs \
+          -H "Content-Type: application/json" \
+          -d '{"template_id": "stuck-order-resolution", "payload": {"order_id": "ORDER-001"}}'
+        ```
+      </div>
+      <div>
+        ```powershell
+        $body = @{
+          template_id = "stuck-order-resolution"
+          payload     = @{ order_id = "ORDER-001" }
+        } | ConvertTo-Json -Depth 5
+
+        Invoke-RestMethod -Uri "http://localhost:8000/runs" `
+          -Method Post -ContentType "application/json" -Body $body
+        ```
+      </div>
+    </Tabs>
+
+    **Response** (shape):
+
+    ```json
+    {"run_id": "<uuid>", "template_id": "stuck-order-resolution", "status": "pending"}
+    ```
+  </div>
+  <div>
+    **Inspect run status and events**
+
+    <Tabs items={["Linux / macOS (bash)", "Windows (PowerShell)"]}>
+      <div>
+        ```bash
+        RUN_ID="<paste-run-id>"
+
+        curl -s "http://localhost:8000/runs/${RUN_ID}"
+        curl -s "http://localhost:8000/runs/${RUN_ID}/events"
+        curl -s http://localhost:8000/health
+        ```
+      </div>
+      <div>
+        ```powershell
+        $RunId = "<paste-run-id>"
+
+        Invoke-RestMethod "http://localhost:8000/runs/$RunId"
+        Invoke-RestMethod "http://localhost:8000/runs/$RunId/events"
+        Invoke-RestMethod "http://localhost:8000/health"
+        ```
+      </div>
+    </Tabs>
+  </div>
+  <div>
+    **Admin API and console (optional)**
+
+    - **Admin API** is not in the minimal compose file; run it manually with `DATABASE_URL` pointing at Postgres, or use **Kind** / **EKS** manifests.
+    - **Admin console** (`admin-console/`): set `VITE_ADMIN_API_URL` and `VITE_RUNTIME_API_URL` (defaults often **`http://localhost:30081`** and **`http://localhost:30080`** for Kind-style port forwards).
+  </div>
+  <div>
+    **Redis in compose**
+
+    `docker-compose.yml` includes **Redis**, but the **runtime uses Postgres only** for its code paths.
+
+    <Callout type="tip" title="Redis is optional">
+      Redis is included for other experiments — the runtime’s code paths do not require it.
+    </Callout>
+  </div>
+</Steps>
+
+## Related reading
+
+- [Runtime service](/service-runtime) — full API surface.
+- [AWS deployment](/aws-deployment) — production-like stack on EKS.
+- [Building a template](/building-templates) — new `template_id` rows and images.
