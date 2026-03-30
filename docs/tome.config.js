@@ -1,6 +1,6 @@
 /** @type {import('@tomehq/core').TomeConfig} */
 export default {
-  name: "SWARM",
+  name: "bw-swarm",
   theme: {
     preset: "amber",
     mode: "auto",
@@ -8,31 +8,36 @@ export default {
   navigation: [
     {
       group: "Overview",
-      pages: ["index", "architecture", "concepts"],
+      pages: ["index"],
     },
     {
-      group: "Getting Started",
-      pages: ["quickstart-local", "aws-deployment"],
+      group: "Concepts",
+      pages: [
+        "concepts/architecture",
+        "concepts/data-flow",
+        "concepts/repo-layout",
+        "concepts/glossary",
+      ],
     },
     {
-      group: "Workflows",
-      pages: ["workflows-overview", "yaml-reference", "stages-and-steps", "followup-lifecycle"],
+      group: "Tutorials",
+      pages: ["tutorials/local-dev", "tutorials/kind-quickstart"],
     },
     {
-      group: "Templates",
-      pages: ["templates-overview", "building-templates"],
+      group: "Guides",
+      pages: [
+        "guides/deployment",
+        "guides/templates",
+        "guides/templates-catalog",
+      ],
     },
     {
-      group: "Services",
-      pages: ["service-runtime", "service-adapter", "service-admin-api", "service-swarm-core"],
-    },
-    {
-      group: "Adapter Reference",
-      pages: ["adapters"],
-    },
-    {
-      group: "Infrastructure",
-      pages: ["infrastructure", "database-schema"],
+      group: "Reference",
+      pages: ["reference/services", "reference/admin-api"],
     },
   ],
+  // socialLinks: [
+  //   { platform: "github", url: "https://github.com/your-org/your-repo" },
+  //   { platform: "twitter", url: "https://x.com/your-handle" },
+  // ],
 };

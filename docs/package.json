@@ -8,8 +8,8 @@
     "deploy": "tome deploy"
   },
   "devDependencies": {
-    "@tomehq/cli": "^0.1.0",
-    "@tomehq/theme": "^0.1.0",
+    "@tomehq/cli": "^0.6.3",
+    "@tomehq/theme": "^0.6.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   }
