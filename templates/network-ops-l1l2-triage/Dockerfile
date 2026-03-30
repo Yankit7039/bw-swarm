@@ -4,4 +4,4 @@
 
 ARG BASE_IMAGE=swarm-core:latest
 FROM ${BASE_IMAGE}
-COPY network-ops-l1l2-triage.yaml /app/workflow.yaml
+# COPY network-ops-l1l2-triage.yaml /app/workflow.yaml

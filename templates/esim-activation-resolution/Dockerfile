@@ -4,4 +4,4 @@
 
 ARG BASE_IMAGE=swarm-core:latest
 FROM ${BASE_IMAGE}
-COPY esim-activation-resolution.yaml /app/workflow.yaml
+# COPY esim-activation-resolution.yaml /app/workflow.yaml

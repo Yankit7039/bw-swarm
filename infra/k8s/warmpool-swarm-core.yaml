@@ -1,16 +1,16 @@
-# SandboxTemplate + SandboxWarmPool for number porting resolution (agent-sandbox v0.1.1).
-# Build template image from: templates/number-porting-resolution. Requires adk-secrets.
+# Generic swarm-core warm pool (Kind / local dev).
+# All templates share this single pool; pods fetch workflow YAML from DB per run_id.
 ---
 apiVersion: extensions.agents.x-k8s.io/v1alpha1
 kind: SandboxTemplate
 metadata:
-  name: number-porting-adk-pool
+  name: swarm-core-pool
 spec:
   podTemplate:
     spec:
       containers:
-        - name: number-porting-agent
-          image: number-porting-adk:latest
+        - name: swarm-core
+          image: swarm-core:latest
           imagePullPolicy: Never
           ports:
             - containerPort: 8888
@@ -53,8 +53,8 @@ spec:
 apiVersion: extensions.agents.x-k8s.io/v1alpha1
 kind: SandboxWarmPool
 metadata:
-  name: number-porting-adk-pool
+  name: swarm-core-pool
 spec:
-  replicas: 3
+  replicas: 5
   sandboxTemplateRef:
-    name: number-porting-adk-pool
+    name: swarm-core-pool

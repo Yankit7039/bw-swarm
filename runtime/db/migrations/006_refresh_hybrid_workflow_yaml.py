@@ -1,7 +1,8 @@
 """Re-sync hybrid templates' workflow_yaml from repo files (idempotent upsert).
 
 005 uses ON CONFLICT DO NOTHING, so existing rows never pick up YAML edits. This migration
-updates workflow_yaml (and updated_at) every time migrations run, keeping DB in line with disk.
+updates workflow_yaml, warm_pool_ref (generic swarm-core-pool), and updated_at every time
+migrations run, keeping DB in line with disk.
 """
 from pathlib import Path
 
@@ -13,35 +14,35 @@ TEMPLATES = [
         "template_id": "stuck-order-resolution",
         "name": "Stuck Order Resolution",
         "image": "stuck-order-adk:latest",
-        "warm_pool_ref": "stuck-order-adk-pool",
+        "warm_pool_ref": "swarm-core-pool",
         "yaml_path": "templates/stuck-order-adk/stuck-order-adk.yaml",
     },
     {
         "template_id": "esim-activation-resolution",
         "name": "eSIM Activation Resolution",
         "image": "esim-activation-adk:latest",
-        "warm_pool_ref": "esim-activation-adk-pool",
+        "warm_pool_ref": "swarm-core-pool",
         "yaml_path": "templates/esim-activation-resolution/esim-activation-resolution.yaml",
     },
     {
         "template_id": "number-porting-resolution",
         "name": "Number Porting Resolution",
         "image": "number-porting-adk:latest",
-        "warm_pool_ref": "number-porting-adk-pool",
+        "warm_pool_ref": "swarm-core-pool",
         "yaml_path": "templates/number-porting-resolution/number-porting-resolution.yaml",
     },
     {
         "template_id": "ticket-email-routing",
         "name": "Ticket Email Routing",
         "image": "ticket-email-routing-adk:latest",
-        "warm_pool_ref": "ticket-email-routing-adk-pool",
+        "warm_pool_ref": "swarm-core-pool",
         "yaml_path": "templates/ticket-email-routing/ticket-email-routing.yaml",
     },
     {
         "template_id": "network-ops-l1l2-triage",
         "name": "Network Ops L1/L2 Triage",
         "image": "network-ops-l1l2-triage-adk:latest",
-        "warm_pool_ref": "network-ops-l1l2-triage-adk-pool",
+        "warm_pool_ref": "swarm-core-pool",
         "yaml_path": "templates/network-ops-l1l2-triage/network-ops-l1l2-triage.yaml",
     },
 ]
@@ -67,6 +68,7 @@ async def run(conn: AsyncConnection) -> None:
         )
         ON CONFLICT (template_id) DO UPDATE SET
             workflow_yaml = EXCLUDED.workflow_yaml,
+            warm_pool_ref = EXCLUDED.warm_pool_ref,
             updated_at = (NOW() AT TIME ZONE 'utc')
         """
     )

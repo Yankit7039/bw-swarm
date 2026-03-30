@@ -7,4 +7,4 @@ Infrastructure concerns for Swarm Infra: database (persistent state for runs and
   **Workspace migration:** If you previously used `script-testing` for dev, run once: `terraform -chdir=terraform/prod workspace rename script-testing dev`
 
 - **docker/** — Docker Compose (Postgres, Redis, runtime service).
-- **k8s/** — Kubernetes manifests (e.g. `warmpool-stuck-order-adk.yaml` for SandboxWarmPool; apply after building the template image from `templates/stuck-order-adk`).
+- **k8s/** — Kubernetes manifests (e.g. `warmpool-swarm-core.yaml` for the shared SandboxWarmPool; worker image is `swarm-core`).

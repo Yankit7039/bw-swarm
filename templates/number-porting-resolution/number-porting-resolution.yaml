@@ -6,6 +6,15 @@ input:
   required:
     - order_id
 
+model: openrouter/qwen/qwen3.5-flash-02-23
+
+result_keys:
+  - classify_result
+  - route_result
+  - alert_message
+  - order_status
+  - resolved
+
 adapters:
   - amdocs_oms
   - siebel_crm

@@ -33,12 +33,7 @@ IMAGES = \
   swarm-core:swarm-core:swarm-core/Dockerfile \
   swarm-runtime:.:runtime/Dockerfile \
   swarm-adapter:adapter:adapter/Dockerfile \
-  swarm-admin-api:.:admin-api/Dockerfile \
-  stuck-order-adk:templates/stuck-order-adk:templates/stuck-order-adk/Dockerfile \
-  esim-activation-adk:templates/esim-activation-resolution:templates/esim-activation-resolution/Dockerfile \
-  number-porting-adk:templates/number-porting-resolution:templates/number-porting-resolution/Dockerfile \
-  ticket-email-routing-adk:templates/ticket-email-routing:templates/ticket-email-routing/Dockerfile \
-  network-ops-l1l2-triage-adk:templates/network-ops-l1l2-triage:templates/network-ops-l1l2-triage/Dockerfile
+  swarm-admin-api:.:admin-api/Dockerfile
 
 # ── K8s manifests in apply order ─────────────────────────────────────────────
 K8S_MANIFESTS = \
@@ -48,11 +43,7 @@ K8S_MANIFESTS = \
   infra/k8s-aws/adapter-deployment.yaml \
   infra/k8s-aws/runtime-deployment.yaml \
   infra/k8s-aws/admin-api-deployment.yaml \
-  infra/k8s-aws/warmpool-stuck-order-adk.yaml \
-  infra/k8s-aws/warmpool-esim-activation-adk.yaml \
-  infra/k8s-aws/warmpool-number-porting-adk.yaml \
-  infra/k8s-aws/warmpool-ticket-email-routing-adk.yaml \
-  infra/k8s-aws/warmpool-network-ops-l1l2-triage-adk.yaml
+  infra/k8s-aws/warmpool-swarm-core.yaml
 
 # =============================================================================
 # PUBLIC TARGETS
@@ -119,12 +110,8 @@ _build-push:
 	  ctx=$$(echo $$entry | cut -d: -f2); \
 	  df=$$(echo $$entry | cut -d: -f3); \
 	  ecr_repo=$(ECR_BASE)/$(ECR_PREFIX)$$name; \
-	  build_args=""; \
-	  if [ "$$name" = "stuck-order-adk" ] || [ "$$name" = "esim-activation-adk" ] || [ "$$name" = "network-ops-l1l2-triage-adk" ] || [ "$$name" = "ticket-email-routing-adk" ]; then \
-	    build_args="--build-arg BASE_IMAGE=$(ECR_BASE)/$(ECR_PREFIX)swarm-core:latest"; \
-	  fi; \
 	  echo "  --> Building $$name"; \
-	  docker build $$build_args -f $$df -t $$name:latest $$ctx; \
+	  docker build -f $$df -t $$name:latest $$ctx; \
 	  docker tag $$name:latest $$ecr_repo:latest; \
 	  docker push $$ecr_repo:latest; \
 	done
@@ -135,10 +122,7 @@ _k8s-apply:
 	$(eval ECR_RUNTIME := $(ECR_BASE)/$(ECR_PREFIX)swarm-runtime:latest)
 	$(eval ECR_ADAPTER := $(ECR_BASE)/$(ECR_PREFIX)swarm-adapter:latest)
 	$(eval ECR_ADMIN   := $(ECR_BASE)/$(ECR_PREFIX)swarm-admin-api:latest)
-	$(eval ECR_ADK          := $(ECR_BASE)/$(ECR_PREFIX)stuck-order-adk:latest)
-	$(eval ECR_ESIM_ADK     := $(ECR_BASE)/$(ECR_PREFIX)esim-activation-adk:latest)
-	$(eval ECR_NUMBER_ADK   := $(ECR_BASE)/$(ECR_PREFIX)number-porting-adk:latest)
-	$(eval ECR_NETWORK_OPS_ADK := $(ECR_BASE)/$(ECR_PREFIX)network-ops-l1l2-triage-adk:latest)
+	$(eval ECR_SWARM_CORE := $(ECR_BASE)/$(ECR_PREFIX)swarm-core:latest)
 	@echo "  --> Applying agent-sandbox CRDs"
 	kubectl apply -f infra/k8s-aws/agent-sandbox-manifest.yaml
 	kubectl apply -f infra/k8s-aws/agent-sandbox-extensions.yaml
@@ -154,10 +138,7 @@ _k8s-apply:
 	    -e 's|$(ECR_BASE)/swarm-runtime:latest|$(ECR_RUNTIME)|g' \
 	    -e 's|$(ECR_BASE)/swarm-adapter:latest|$(ECR_ADAPTER)|g' \
 	    -e 's|$(ECR_BASE)/swarm-admin-api:latest|$(ECR_ADMIN)|g' \
-	    -e 's|$(ECR_BASE)/stuck-order-adk:latest|$(ECR_ADK)|g' \
-	    -e 's|$(ECR_BASE)/esim-activation-adk:latest|$(ECR_ESIM_ADK)|g' \
-	    -e 's|$(ECR_BASE)/number-porting-adk:latest|$(ECR_NUMBER_ADK)|g' \
-	    -e 's|$(ECR_BASE)/network-ops-l1l2-triage-adk:latest|$(ECR_NETWORK_OPS_ADK)|g' \
+	    -e 's|$(ECR_BASE)/swarm-core:latest|$(ECR_SWARM_CORE)|g' \
 	    -e 's|REPLACE_WITH_SECRET_NAME|$(SECRET_NAME)|g' \
 	    $$f | kubectl apply -f -; \
 	done

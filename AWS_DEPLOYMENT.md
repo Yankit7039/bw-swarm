@@ -421,11 +421,7 @@ kubectl apply -f infra/k8s-aws/runtime-rbac.yaml
 kubectl apply -f infra/k8s-aws/adapter-deployment.yaml
 kubectl apply -f infra/k8s-aws/runtime-deployment.yaml
 kubectl apply -f infra/k8s-aws/admin-api-deployment.yaml
-kubectl apply -f infra/k8s-aws/warmpool-stuck-order-adk.yaml
-kubectl apply -f infra/k8s-aws/warmpool-esim-activation-adk.yaml
-kubectl apply -f infra/k8s-aws/warmpool-number-porting-adk.yaml
-kubectl apply -f infra/k8s-aws/warmpool-ticket-email-routing-adk.yaml
-kubectl apply -f infra/k8s-aws/warmpool-network-ops-l1l2-triage-adk.yaml
+kubectl apply -f infra/k8s-aws/warmpool-swarm-core.yaml
 # Skip: kubectl apply -f infra/k8s-aws/ingress.yaml
 # Skip: kubectl apply -f infra/k8s-aws/ingress-admin.yaml
 ```

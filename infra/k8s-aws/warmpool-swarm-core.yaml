@@ -1,17 +1,14 @@
-# SandboxTemplate + SandboxWarmPool for network ops L1/L2 triage (agent-sandbox v0.1.1).
-# Build template image from: templates/network-ops-l1l2-triage. Requires adk-secrets.
----
 apiVersion: extensions.agents.x-k8s.io/v1alpha1
 kind: SandboxTemplate
 metadata:
-  name: network-ops-l1l2-triage-adk-pool
+  name: swarm-core-pool
 spec:
   podTemplate:
     spec:
       containers:
-        - name: network-ops-l1l2-triage-agent
-          image: network-ops-l1l2-triage-adk:latest
-          imagePullPolicy: Never
+        - name: swarm-core
+          image: 718277287766.dkr.ecr.ap-southeast-1.amazonaws.com/swarm-core:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8888
               name: http
@@ -32,8 +29,8 @@ spec:
                   key: openrouter-api-key
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "250m"
+              memory: "256Mi"
+              cpu: "100m"
             limits:
               memory: "1Gi"
               cpu: "1000m"
@@ -53,8 +50,8 @@ spec:
 apiVersion: extensions.agents.x-k8s.io/v1alpha1
 kind: SandboxWarmPool
 metadata:
-  name: network-ops-l1l2-triage-adk-pool
+  name: swarm-core-pool
 spec:
-  replicas: 3
+  replicas: 15
   sandboxTemplateRef:
-    name: network-ops-l1l2-triage-adk-pool
+    name: swarm-core-pool

@@ -4,4 +4,4 @@
 
 ARG BASE_IMAGE=swarm-core:latest
 FROM ${BASE_IMAGE}
-COPY ticket-email-routing.yaml /app/workflow.yaml
+# COPY ticket-email-routing.yaml /app/workflow.yaml
