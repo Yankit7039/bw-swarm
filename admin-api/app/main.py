@@ -11,7 +11,7 @@ from app.routers import adapters as adapters_router
 
 app = FastAPI(
   title="SWARM Admin API",
-  description="Read-only Admin API for templates, runs, and run_events over the shared runtime Postgres database.",
+  description="Admin API for templates (including PATCH workflow YAML), runs, and run_events over the shared runtime Postgres database.",
 )
 
 app.add_middleware(

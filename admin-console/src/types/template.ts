@@ -42,6 +42,10 @@ export interface CreateTemplateRequest {
   definition: WorkflowDefinition
 }
 
+export interface UpdateTemplateWorkflowRequest {
+  workflow_yaml: string
+}
+
 export interface TemplateResponse {
   id: string
   name: string

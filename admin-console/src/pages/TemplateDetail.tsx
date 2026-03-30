@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import axios from 'axios'
 import {
   ArrowLeft,
   Rocket,
   CheckCircle,
+  Save,
   // AlertCircle,
   // ChevronRight,
   // Activity,
@@ -23,7 +25,20 @@ import {
   X,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
-import { useTemplates } from '../hooks/useTemplates'
+import { useTemplate, useUpdateTemplateWorkflowYaml } from '../hooks/useTemplates'
+
+function apiErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const d = err.response?.data?.detail
+    if (typeof d === 'string') return d
+    if (Array.isArray(d)) {
+      const parts = d.map((x: { msg?: string }) => x.msg).filter(Boolean)
+      if (parts.length) return parts.join(', ')
+    }
+  }
+  if (err instanceof Error) return err.message
+  return 'Save failed'
+}
 
 // YAML syntax highlighting helper - preserves line structure
 function highlightYAML(yaml: string): string {
@@ -293,7 +308,13 @@ function ClusterCard({ cluster }: { cluster: ClusterConfig }) { ... }
 export function TemplateDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { data: templatesData } = useTemplates()
+  const { data: template, isPending, isError } = useTemplate(id ?? '')
+  const updateYaml = useUpdateTemplateWorkflowYaml()
+  const [isEditing, setIsEditing] = useState(false)
+  const [draftYaml, setDraftYaml] = useState('')
+  const lineNumbersRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
   const [isValidating, setIsValidating] = useState(false)
   const [isDeploying, setIsDeploying] = useState(false)
   const [validationStatus, setValidationStatus] = useState<'idle' | 'valid' | 'invalid'>('idle')
@@ -301,13 +322,48 @@ export function TemplateDetail() {
   const [copiedUrl, setCopiedUrl] = useState(false)
   const [copiedPayload, setCopiedPayload] = useState(false)
 
-  const template = templatesData?.data?.find((t) => t.id === id)
+  useEffect(() => {
+    setIsEditing(false)
+  }, [id])
 
   const yamlContent = useMemo(
-    () => getYamlContent(template?.workflow_yaml, id || '', template?.name || 'Unnamed Template'),
+    () =>
+      getYamlContent(
+        template?.workflow_yaml,
+        id || '',
+        template?.name || 'Unnamed Template'
+      ),
     [template?.workflow_yaml, id, template?.name]
   )
   const highlightedYAML = highlightYAML(yamlContent)
+  const editorSource = isEditing ? draftYaml : yamlContent
+  const lineCount = editorSource.split('\n').length
+  const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1)
+
+  const handleStartEdit = () => {
+    setDraftYaml(yamlContent)
+    updateYaml.reset()
+    setIsEditing(true)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    updateYaml.reset()
+  }
+
+  const handleSaveYaml = () => {
+    if (!template) return
+    updateYaml.mutate(
+      { id: template.id, workflow_yaml: draftYaml },
+      { onSuccess: () => setIsEditing(false) }
+    )
+  }
+
+  const syncLineScroll = () => {
+    const ta = textareaRef.current
+    const ln = lineNumbersRef.current
+    if (ta && ln) ln.scrollTop = ta.scrollTop
+  }
 
   // Webhook configuration
   const webhookUrl = useMemo(() => {
@@ -409,11 +465,34 @@ export function TemplateDetail() {
     }, 2000)
   }
 
-  // Line numbers for YAML editor
-  const lineCount = yamlContent.split('\n').length
-  const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1)
+  if (!id) {
+    return (
+      <Layout>
+        <div className="h-[calc(100vh-4rem)] flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-lg text-slate-500">Template not found</p>
+            <Link to="/templates" className="mt-4 text-primary hover:underline inline-flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Templates
+            </Link>
+          </div>
+        </div>
+      </Layout>
+    )
+  }
 
-  if (!template) {
+  if (isPending) {
+    return (
+      <Layout>
+        <div className="h-[calc(100vh-4rem)] flex items-center justify-center">
+          <RefreshCw className="w-8 h-8 animate-spin text-primary" aria-hidden />
+          <span className="sr-only">Loading template</span>
+        </div>
+      </Layout>
+    )
+  }
+
+  if (isError || !template) {
     return (
       <Layout>
         <div className="h-[calc(100vh-4rem)] flex items-center justify-center">
@@ -478,13 +557,40 @@ export function TemplateDetail() {
               <Webhook className="w-4 h-4" />
               Get Webhook
             </button>
-            <button
-              onClick={() => navigate(`/templates/new?edit=${id}`)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-lg transition"
-            >
-              <Edit3 className="w-4 h-4" />
-              Edit
-            </button>
+            {isEditing ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={updateYaml.isPending}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-lg transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveYaml}
+                  disabled={updateYaml.isPending || draftYaml === yamlContent}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg transition disabled:opacity-50"
+                >
+                  {updateYaml.isPending ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  Save YAML
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleStartEdit}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-lg transition"
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit
+              </button>
+            )}
             <button
               onClick={handleValidate}
               disabled={isValidating}
@@ -512,10 +618,19 @@ export function TemplateDetail() {
           </div>
         </header>
 
+        {isEditing && updateYaml.isError && (
+          <div
+            role="alert"
+            className="shrink-0 px-6 py-2.5 bg-rose-50 border-b border-rose-100 text-sm text-rose-800"
+          >
+            {apiErrorMessage(updateYaml.error)}
+          </div>
+        )}
+
         {/* Main Split Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Left: YAML Editor */}
-          <section className="w-full flex flex-col bg-white border-r border-slate-200">
+          <section className="w-full min-h-0 flex flex-col bg-white border-r border-slate-200">
             <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-primary font-mono text-sm">📄</span>
@@ -526,9 +641,12 @@ export function TemplateDetail() {
               </div>
             </div>
 
-            <div className="flex-1 flex overflow-auto yaml-editor">
+            <div className="flex-1 flex min-h-0 overflow-hidden yaml-editor">
               {/* Line Numbers */}
-              <div className="py-6 px-3 text-right text-slate-300 font-mono text-sm select-none border-r border-slate-100 bg-slate-50/50">
+              <div
+                ref={lineNumbersRef}
+                className="py-6 px-3 text-right text-slate-300 font-mono text-sm select-none border-r border-slate-100 bg-slate-50/50 overflow-y-auto shrink-0 min-h-0"
+              >
                 {lineNumbers.map((n) => (
                   <div key={n} className="leading-relaxed h-[1.625rem]">
                     {n}
@@ -537,12 +655,24 @@ export function TemplateDetail() {
               </div>
 
               {/* YAML Content */}
-              <div className="flex-1 py-6 px-4 font-mono text-sm">
-                <div
-                  dangerouslySetInnerHTML={{ __html: highlightedYAML }}
-                  className="text-slate-700"
+              {isEditing ? (
+                <textarea
+                  ref={textareaRef}
+                  value={draftYaml}
+                  onChange={(e) => setDraftYaml(e.target.value)}
+                  onScroll={syncLineScroll}
+                  spellCheck={false}
+                  className="flex-1 min-h-0 min-w-0 py-6 px-4 font-mono text-sm text-slate-700 bg-white border-0 resize-none focus:ring-0 focus:outline-none overflow-y-auto"
+                  aria-label="Workflow YAML"
                 />
-              </div>
+              ) : (
+                <div className="flex-1 min-h-0 overflow-y-auto py-6 px-4 font-mono text-sm">
+                  <div
+                    dangerouslySetInnerHTML={{ __html: highlightedYAML }}
+                    className="text-slate-700"
+                  />
+                </div>
+              )}
             </div>
           </section>
 

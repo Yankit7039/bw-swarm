@@ -14,3 +14,7 @@ class Template(BaseModel):
   created_at: datetime | None = None
   updated_at: datetime | None = None
 
+
+class UpdateTemplateWorkflowBody(BaseModel):
+  workflow_yaml: str
+

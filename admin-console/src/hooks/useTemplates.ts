@@ -26,3 +26,21 @@ export const useCreateTemplate = () => {
     },
   })
 }
+
+export const useUpdateTemplateWorkflowYaml = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      workflow_yaml,
+    }: {
+      id: string
+      workflow_yaml: string
+    }) => templatesApi.updateWorkflowYaml(id, { workflow_yaml }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['templates'] })
+      queryClient.invalidateQueries({ queryKey: ['templates', vars.id] })
+    },
+  })
+}

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, MetaData, Table, Column, String, Text, DateTime, select
+from sqlalchemy import JSON, MetaData, Table, Column, String, Text, DateTime, select, update
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
@@ -131,6 +131,19 @@ async def get_template(template_id: str) -> dict[str, Any] | None:
         data["created_at"] = _serialize_dt(data.get("created_at"))
         data["updated_at"] = _serialize_dt(data.get("updated_at"))
         return data
+
+
+async def update_template_workflow_yaml(template_id: str, workflow_yaml: str | None) -> bool:
+    async with session_factory() as session:
+        now = datetime.now(timezone.utc)
+        stmt = (
+            update(templates_table)
+            .where(templates_table.c.template_id == template_id)
+            .values(workflow_yaml=workflow_yaml, updated_at=now)
+        )
+        result = await session.execute(stmt)
+        await session.commit()
+        return (result.rowcount or 0) > 0
 
 
 async def list_runs(
