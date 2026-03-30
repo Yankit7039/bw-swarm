@@ -15,25 +15,39 @@ export default {
       pages: [
         "concepts/architecture",
         "concepts/data-flow",
+        "concepts/warm-pool",
+        "concepts/follow-up-lifecycle",
+        "concepts/event-system",
         "concepts/repo-layout",
         "concepts/glossary",
       ],
     },
     {
       group: "Tutorials",
-      pages: ["tutorials/local-dev", "tutorials/kind-quickstart"],
+      pages: [
+        "tutorials/local-dev",
+        "tutorials/kind-quickstart",
+        "tutorials/aws-quickstart",
+      ],
     },
     {
       group: "Guides",
       pages: [
-        "guides/deployment",
+        "guides/workflow-yaml",
+        "guides/adapters",
         "guides/templates",
         "guides/templates-catalog",
+        "guides/deployment",
       ],
     },
     {
       group: "Reference",
-      pages: ["reference/services", "reference/admin-api"],
+      pages: [
+        "reference/runtime-api",
+        "reference/admin-api",
+        "reference/services",
+        "reference/environment-variables",
+      ],
     },
   ],
   // socialLinks: [

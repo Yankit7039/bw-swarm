@@ -1,0 +1,80 @@
+---
+title: Adapters
+description: The SWARM adapter MCP server, tool categories, and the adapter_tool_registry in Postgres.
+---
+
+# Adapters
+
+The **adapter** service is a **FastAPI** app that mounts an **MCP** (Model Context Protocol) server at **`{MCP_MOUNT_PATH}`** (default **`/mcp`**). **swarm-core** pods call **`{ADAPTER_URL}/mcp`** using Streamable HTTP so workflows can invoke tools without embedding vendor SDKs in every template.
+
+## Role in the platform
+
+| Concern | Owner |
+|---------|--------|
+| **Tool definitions** (names, JSON Schema) | Adapter registers tools at startup; persists to **`adapter_tool_registry`** |
+| **Tool execution** | MCP request/response to the adapter process |
+| **Workflow logic** | **swarm-core** YAML (**`mcp_call`** steps) and **`llm_agent`** steps |
+
+## Tool families (registration)
+
+Tools are registered in **`adapter/app/mcp_server.py`** via:
+
+- **`register_amdocs_oms_tools`**
+- **`register_escalation_matrix_tools`**
+- **`register_agentmail_tools`**
+- **`register_jira_tools`**
+- **`register_siebel_crm_tools`**
+- **`register_ericsson_tools`**
+- **`register_ericsson_oss_tools`**
+- **`register_netcracker_tools`**
+- **`register_servicenow_kb_tools`**
+- **`register_fraud_engine_tools`**
+- **`register_esim_manager_tools`**
+- **`register_runbook_registry_tools`**
+- **`register_porting_gateway_tools`**
+- **`register_notification_tools`**
+
+Tool names follow a **`namespace__function`** pattern (e.g. **`jira__get_ticket`**, **`agentmail__send_email`**). Many tools return **deterministic mock data** when external credentials are unset — see each adapter module under **`adapter/app/adapters/`**.
+
+## Adapter tool registry
+
+On application lifespan startup, **`ensure_schema_and_upsert_tools()`** (see **`adapter/app/tool_registry_db.py`**) ensures the **`adapter_tool_registry`** table exists and **upserts** rows for every registered MCP tool (name + schema metadata).
+
+The **Admin API** exposes:
+
+- **`GET /adapters/`** — list adapters / tool groups
+- **`GET /adapters/{adapter_name}`** — tools for one adapter
+
+The **Admin Console** **Adapters** page reads this API.
+
+## Environment variables (adapter)
+
+Typical keys (also mirrored in Kubernetes **`adk-secrets`** as hyphenated keys):
+
+| Variable | Purpose |
+|----------|---------|
+| **`DATABASE_URL`** | Async Postgres URL for registry upserts |
+| **`AGENTMAIL_API_KEY`**, **`AGENTMAIL_INBOX_ID`** | Real AgentMail sends; if empty, send tools **mock** success |
+| **`JIRA_EMAIL`**, **`JIRA_API_TOKEN`**, **`JIRA_BASE`** | Jira REST tools |
+
+See [Environment variables](/reference/environment-variables).
+
+## Workflow YAML usage
+
+Reference tools in **`mcp_call`** steps:
+
+```yaml
+- type: mcp_call
+  tool: jira__get_ticket
+  input:
+    order_id: "{{ order_id }}"
+  output_key: ticket_details
+```
+
+**`llm_agent`** steps may pass **`tool_filter`** to restrict which MCP tools the model can call.
+
+## Further reading
+
+- [Workflow YAML](/guides/workflow-yaml)
+- [Admin API](/reference/admin-api) — **`/adapters`**
+- [Services](/reference/services)

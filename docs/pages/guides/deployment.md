@@ -1,6 +1,6 @@
 ---
 title: Deployment
-description: Infra entry points for Docker, Kubernetes, and cloud.
+description: Infra entry points for Docker Compose, Kind, Kubernetes on AWS, and Terraform.
 ---
 
 # Deployment
@@ -9,38 +9,54 @@ description: Infra entry points for Docker, Kubernetes, and cloud.
 
 The recommended way to run **backend and runtime systems** together locally (Postgres in-cluster, adapter MCP, runtime, warm pools, admin-api) is:
 
-- **[Kind cluster quickstart](/tutorials/kind-quickstart)** — documents `OPENROUTER_API_KEY=... ./scripts/quickstart.sh` and the equivalent manual `kubectl` / `docker build` steps.
+- **[Kind cluster quickstart](/tutorials/kind-quickstart)** — `OPENROUTER_API_KEY=... ./scripts/quickstart.sh` and manual `kubectl` / `docker build` steps
 
 Runtime is exposed at **`http://localhost:30080`** and Admin API at **`http://localhost:30081`** (NodePorts).
 
+## AWS (EKS)
+
+For production-like deployment:
+
+- **[AWS quickstart](/tutorials/aws-quickstart)** — **`make deploy ENV=dev|prod`**, Terraform, ECR image push, ordered **`kubectl`** applies
+
+Terraform in **`infra/terraform/prod/`** typically provisions:
+
+- **VPC** and subnets (**`module.vpc`**)
+- **ECR** repositories for **`swarm-core`**, **`swarm-runtime`**, **`swarm-adapter`**, **`swarm-admin-api`**, and template images (**`module.ecr`**)
+- **EKS** cluster and node groups (**`module.eks`**)
+- **RDS** Postgres and supporting IAM / secrets wiring (see **`main.tf`**)
+- **Kubernetes/Helm** add-ons as defined (load balancer controller, External Secrets, etc.)
+
+The root **`Makefile`** targets **`deploy`** and **`destroy`** with workspace selection (**`dev`** vs **`prod`**) and **`terraform.tfvars`** / **`dev.tfvars`**.
+
+**Apply order for raw manifests:** follow **`infra/k8s-aws/README.md`** — agent-sandbox **CRDs first**, then app manifests and **`warmpool-swarm-core.yaml`**.
+
 ## Docker Compose
 
-`infra/docker/docker-compose.yml` provides:
+**`infra/docker/docker-compose.yml`** provides:
 
-- **postgres** — Port `5432`
-- **redis** — Port `6379` (available for other components; runtime path is Postgres-centric)
-- **runtime** — Image built from `runtime/Dockerfile`, port `8000`
+- **postgres** — port **`5432`**
+- **redis** — port **`6379`** (available for other components; the runtime path is Postgres-centric)
+- **runtime** — image built from **`runtime/Dockerfile`**, port **`8000`**
 
 ```bash
 cd infra/docker
 docker compose up -d
 ```
 
-## Kubernetes
+**Compose does not** run the **adapter**, **warm pool**, or **swarm-core** sandbox pods. Use **Kind** or **EKS** for the full execution path.
 
-- Manifests live under `infra/k8s/` and `infra/k8s-aws/` (e.g. warm pool deployments, admin-api NodePort).
-- Per-template warm pool YAML often pairs with an image built from `templates/<name>/`.
+## Kubernetes (generic)
 
-See `infra/k8s-aws/README.md` and template READMEs for image build and `kubectl apply` order.
-
-## Terraform (AWS / EKS)
-
-`infra/terraform/prod` targets EKS and related AWS resources. The infra README notes workspace naming and ALB webhook readiness.
-
-## Admin API in cluster
-
-After a Kind quickstart (if your repo provides one), Admin API may be exposed at **NodePort** `30081` — see `admin-api/README.md` in the repo.
+- Kind manifests: **`infra/k8s/`**
+- AWS manifests: **`infra/k8s-aws/`** (do not apply Kind files to EKS)
 
 ## Observability
 
-See `observability/README.md` for tracing and APM integration notes.
+See **`observability/README.md`** for tracing and APM integration notes.
+
+## Further reading
+
+- [Architecture](/concepts/architecture)
+- [Warm pool](/concepts/warm-pool)
+- [Services](/reference/services)

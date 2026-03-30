@@ -1,0 +1,117 @@
+---
+title: AWS quickstart
+description: Deploy SWARM to EKS with Terraform, ECR, and Kubernetes manifests using the repo Makefile.
+---
+
+# AWS quickstart
+
+This tutorial is the **canonical** guide for deploying SWARM to **AWS EKS** in account **`718277287766`**, region **`ap-southeast-1`**, using **`make deploy`**. Root-level **`AWS_QUICKSTART.md`** and **`AWS_DEPLOYMENT.md`** remain as quick references in the repo; prefer this page for navigation inside the docs site.
+
+## Prerequisites
+
+- **AWS CLI** configured for the target account and region
+- **Terraform** ≥ 1.6
+- **Docker**
+- **kubectl**
+- **curl**
+
+Optional: read **`infra/k8s-aws/README.md`** for **manual** `kubectl apply` order (CRDs before custom resources).
+
+---
+
+## 1. Configure secrets (Terraform)
+
+Edit the tfvars file for your environment:
+
+| Environment | File |
+|-------------|------|
+| Dev | `infra/terraform/prod/dev.tfvars` |
+| Prod | `infra/terraform/prod/terraform.tfvars` |
+
+Set at minimum:
+
+- **`openrouter_api_key`** — LLM access for **swarm-core** pods
+- **`agentmail_api_key`**, **`agentmail_inbox_id`** — real AgentMail sends (optional; adapter mocks if unset)
+- **`jira_email`**, **`jira_api_token`**, **`jira_base`** — Jira MCP tools for ticket workflows (optional)
+- **`jira_webhook_secret`** — verifies **`POST /webhooks/jira`** on **runtime** (Bearer or HMAC)
+- **`agentmail_webhook_secret`** — Svix signing secret for **`POST /webhooks/agentmail`**
+
+Do **not** commit real secrets. Use local edits or your secrets manager.
+
+**Remote state:** If this is a greenfield account, bootstrap Terraform remote state once using **`infra/terraform/backend`** (see repo). Otherwise the S3 backend in **`infra/terraform/prod`** is already configured.
+
+---
+
+## 2. Deploy with Make
+
+From the **repository root**:
+
+```bash
+make deploy ENV=dev
+# or
+make deploy ENV=prod
+```
+
+The Makefile roughly:
+
+1. **`terraform apply`** in **`infra/terraform/prod`** (workspace **dev** or **default** prod) — **VPC**, **ECR**, **EKS** 1.31, **RDS**, **Secrets Manager**, **External Secrets**, load balancer controller (as defined in Terraform)
+2. **`aws eks update-kubeconfig`**
+3. **ECR login** and **docker build/push** for: **`swarm-core`**, **`swarm-runtime`**, **`swarm-adapter`**, **`swarm-admin-api`**
+4. **`kubectl apply`** of ordered manifests: **`infra/k8s-aws/runtime-rbac.yaml`**, **`cluster-secret-store.yaml`**, **`external-secret.yaml`**, adapter/runtime/admin-api deployments, **`warmpool-swarm-core.yaml`**
+5. **Health checks** against Terraform outputs (runtime and admin API URLs)
+
+Expect on the order of **20–25 minutes** end-to-end.
+
+Outputs (after apply):
+
+```bash
+terraform -chdir=infra/terraform/prod output
+```
+
+Use **`runtime_url`** and **`api_url`** for smoke tests.
+
+---
+
+## 3. Verify the cluster
+
+```bash
+kubectl get pods -n default
+kubectl get sandboxwarmpools.extensions.agents.x-k8s.io
+```
+
+Warm pool pods should become **Ready**. Database connectivity uses **RDS** via **`database-url`** in **`adk-secrets`** (External Secrets).
+
+---
+
+## 4. Trigger a test run
+
+Point HTTP clients at the **runtime** URL from Terraform output. Example:
+
+```bash
+curl -sS -X POST "$RUNTIME_URL/runs" \
+  -H "Content-Type: application/json" \
+  -d '{"template_id":"number-porting-resolution","payload":{"order_id":"PORT-TEST-1"}}'
+```
+
+Poll **`GET $RUNTIME_URL/runs/{run_id}/events`** for **`run_events`**.
+
+---
+
+## 5. Destroy (optional)
+
+```bash
+make destroy ENV=dev
+# or
+make destroy ENV=prod
+```
+
+Expect roughly **12–15+ minutes**; ALB teardown can take longer.
+
+---
+
+## Further reading
+
+- [Deployment](/guides/deployment) — Infra map and Compose vs EKS
+- [Kind cluster quickstart](/tutorials/kind-quickstart) — local parity
+- [Environment variables](/reference/environment-variables)
+- Root **`AWS_QUICKSTART.md`** — condensed table and debug commands

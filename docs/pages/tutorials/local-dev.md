@@ -5,15 +5,29 @@ description: Run Postgres, runtime, admin-api, and admin-console locally.
 
 # Local development
 
-This path runs **Postgres** (often via Docker Compose) and **Python services on your machine** (`uvicorn`). It does not start Kind, warm pools, or the adapter in Kubernetes.
+This path runs **Postgres** (often via Docker Compose) and **Python services on your machine** (`uvicorn`). It does **not** start Kind, **warm pools**, the **adapter**, or **swarm-core** pods — so **`POST /runs`** from the runtime will try to schedule sandbox work against Kubernetes (if configured) and will not exercise the full MCP + pod path unless you point **`SANDBOX_NAMESPACE`** at a cluster where agent-sandbox is installed.
 
 For the **full runtime + adapter + template sandboxes + admin-api** stack on a local **Kind** cluster, use **[Kind cluster quickstart](/tutorials/kind-quickstart)** (`./scripts/quickstart.sh` from repo root).
 
 ## Prerequisites
 
-- **Python 3.12+** for `runtime` and `admin-api`
+- **Python 3.12+** for `runtime` and `admin-api` (use a **venv** per service or one shared venv at repo root)
 - **Node.js 20+** for `admin-console` and `docs`
 - **Docker** (optional) for Compose-based Postgres/runtime
+
+### Python virtual environment (recommended)
+
+From the repository root:
+
+```bash
+python -m venv .venv
+# Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# macOS / Linux:
+source .venv/bin/activate
+```
+
+Install dependencies for **`runtime`** and **`admin-api`** as described in each service’s **`README.md`** (for example `pip install -r requirements.txt` or `pip install -e .` from that directory).
 
 ## Database
 
@@ -58,16 +72,18 @@ Point the UI at your Admin API (e.g. `VITE_ADMIN_API_URL` in `.env` — often `h
 
 ## Trigger a run
 
-With runtime up, `POST` to `http://localhost:8000/runs` with a body like:
+With **runtime** up and a **template** row present in Postgres (from migrations/seeds), `POST` to `http://localhost:8000/runs`:
 
 ```json
 {
-  "template_id": "<registered_template_id>",
-  "payload": { "order_id": "EXAMPLE-1" }
+  "template_id": "number-porting-resolution",
+  "payload": {
+    "order_id": "PORT-67890"
+  }
 }
 ```
 
-Use `GET /runs/{run_id}` and `GET /runs/{run_id}/events` for status and streaming-style event logs.
+Use `GET /runs/{run_id}` and `GET /runs/{run_id}/events` for status and event logs. Listing runs is available from **Admin API** `GET /runs/` (not on the runtime service).
 
 ## Documentation site
 
