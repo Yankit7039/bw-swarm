@@ -4,4 +4,6 @@
 
 ARG BASE_IMAGE=swarm-core:latest
 FROM ${BASE_IMAGE}
-COPY stuck-order-adk.yaml /app/workflow.yaml
+# Optional: COPY the YAML so the pod can validate at startup and run offline.
+# Remove this line once templates.workflow_yaml is populated in the DB for this template.
+

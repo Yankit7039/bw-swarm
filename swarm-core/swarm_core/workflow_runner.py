@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
 import uuid
 from pathlib import Path
+from typing import Any
 
 import yaml
 from google.adk.apps.app import App
@@ -15,7 +17,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from swarm_core.agent import build_root_agent, fetch_mcp_tool_labels
-from swarm_core.run_db import insert_run_event, update_run_status
+from swarm_core.run_db import fetch_workflow_yaml, insert_run_event, update_run_status
 from swarm_core.schema import WorkflowSchema, load_and_validate_workflow_yaml
 
 _LOG = logging.getLogger(__name__)
@@ -25,6 +27,35 @@ _LLM_LOG_MAX_LEN = 4000
 
 def _yaml_path() -> Path:
     return Path(os.environ.get("YAML_PATH", "/app/workflow.yaml"))
+
+
+async def _resolve_yaml_path(run_id: uuid.UUID) -> tuple[Path, Any]:
+    """Return (path, tempfile_handle_or_None).
+
+    Prefers YAML_PATH on disk (local dev / backward-compat fallback).
+    When the file is absent, fetches workflow_yaml from the templates table
+    via the run's template_id and writes it to a NamedTemporaryFile.
+    The caller must unlink the tempfile path in a finally block when handle is not None.
+    """
+    disk_path = _yaml_path()
+    if disk_path.exists():
+        return disk_path, None
+
+    yaml_str = await fetch_workflow_yaml(run_id)
+    if not yaml_str:
+        raise RuntimeError(
+            f"workflow_yaml not found in templates table for run_id={run_id}. "
+            "Either populate templates.workflow_yaml or set YAML_PATH to a local file."
+        )
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".yaml", delete=False, encoding="utf-8"
+    )
+    try:
+        tmp.write(yaml_str)
+        tmp.flush()
+    finally:
+        tmp.close()
+    return Path(tmp.name), tmp
 
 
 def _llm_agent_tool_allowlists(workflow_path: Path) -> dict[str, frozenset[str]]:
@@ -319,12 +350,19 @@ async def _run_standard_workflow(run_id: uuid.UUID, payload: dict, yaml_path: Pa
 
 
 async def run_workflow(run_id: uuid.UUID, payload: dict) -> None:
-    yaml_path = _yaml_path()
-    wf = load_and_validate_workflow_yaml(str(yaml_path))
-    fu = wf.follow_up
-    if fu.mode == "agentmail":
-        from swarm_core.followup_agentmail import run_agentmail_workflow
+    yaml_path, tmp_handle = await _resolve_yaml_path(run_id)
+    try:
+        wf = load_and_validate_workflow_yaml(str(yaml_path))
+        fu = wf.follow_up
+        if fu.mode == "agentmail":
+            from swarm_core.followup_agentmail import run_agentmail_workflow
 
-        await run_agentmail_workflow(run_id, payload, yaml_path, wf)
-        return
-    await _run_standard_workflow(run_id, payload, yaml_path, wf)
+            await run_agentmail_workflow(run_id, payload, yaml_path, wf)
+            return
+        await _run_standard_workflow(run_id, payload, yaml_path, wf)
+    finally:
+        if tmp_handle is not None:
+            try:
+                os.unlink(tmp_handle.name)
+            except OSError:
+                pass

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import dotenv_values, load_dotenv
 
@@ -34,8 +36,16 @@ from swarm_core.workflow_runner import run_workflow
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Fail fast if workflow YAML is missing or invalid (each template image supplies /app/workflow.yaml)
-    load_and_validate_workflow_yaml(YAML_PATH)
+    yaml_path = Path(YAML_PATH)
+    if yaml_path.exists():
+        # Local dev / image with COPY: validate eagerly so bad YAMLs fail fast.
+        load_and_validate_workflow_yaml(YAML_PATH)
+    else:
+        # Production DB mode: no file present; YAML is fetched per-run from templates table.
+        logging.getLogger(__name__).warning(
+            "YAML_PATH %s not found on disk — workflow YAML will be fetched from DB per run.",
+            YAML_PATH,
+        )
     yield
 
 

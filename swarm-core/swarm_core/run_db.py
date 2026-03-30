@@ -175,3 +175,25 @@ async def mark_pending_processed_by_id(pending_id: int) -> bool:
         await session.commit()
         rc = result.rowcount
         return rc is not None and rc > 0
+
+
+async def fetch_workflow_yaml(run_id: UUID) -> str | None:
+    """Return templates.workflow_yaml for the template that owns this run.
+
+    Joins runs → templates so the pod never needs to know its own template_id
+    ahead of time; the runtime already stamped it on the run row.
+    """
+    async with async_session_factory() as session:
+        result = await session.execute(
+            text(
+                "SELECT t.workflow_yaml "
+                "FROM runs r "
+                "JOIN templates t ON t.template_id = r.template_id "
+                "WHERE r.run_id = :run_id"
+            ),
+            {"run_id": str(run_id)},
+        )
+        row = result.fetchone()
+        if row is None or row[0] is None:
+            return None
+        return row[0]
