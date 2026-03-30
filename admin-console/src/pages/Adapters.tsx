@@ -10,6 +10,7 @@ import {
   Search,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
+import { TableOfContents } from '../components/TableOfContents'
 import { useAdapters } from '../hooks/useAdapters'
 import type { Adapter, AdapterTool } from '../types/adapter'
 
@@ -213,6 +214,16 @@ export const Adapters = () => {
     [filteredAdapters, adapterSort]
   )
 
+  const tocItems = useMemo(
+    () =>
+      displayAdapters.map((a) => ({
+        id: slugForAdapter(a.adapter_name),
+        label: a.adapter_name,
+        toolCount: a.tool_count,
+      })),
+    [displayAdapters]
+  )
+
   const hasSearch = searchQuery.trim().length > 0
   const noSearchResults = hasSearch && displayAdapters.length === 0
 
@@ -345,39 +356,42 @@ export const Adapters = () => {
                 </button>
               </div>
             ) : (
-              <div id="adapter-tools-sections" className="min-w-0 space-y-14">
-                {displayAdapters.map((adapter: Adapter) => {
-                  const sectionId = slugForAdapter(adapter.adapter_name)
-                  const latest = maxUpdatedAt(adapter.tools)
-                  return (
-                    <section
-                      key={adapter.adapter_name}
-                      id={sectionId}
-                      className="scroll-mt-36 min-w-0"
-                    >
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4 mb-6 pb-4 border-b border-slate-200">
-                        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                          <h2 className="text-2xl font-extrabold text-slate-900 break-words">
-                            {adapter.adapter_name}
-                          </h2>
-                          <span className="text-sm text-slate-500 tabular-nums">
-                            {adapter.tool_count} tool{adapter.tool_count === 1 ? '' : 's'}
-                          </span>
+              <div className="flex gap-8 items-start">
+                <div id="adapter-tools-sections" className="min-w-0 flex-1 space-y-14">
+                  {displayAdapters.map((adapter: Adapter) => {
+                    const sectionId = slugForAdapter(adapter.adapter_name)
+                    const latest = maxUpdatedAt(adapter.tools)
+                    return (
+                      <section
+                        key={adapter.adapter_name}
+                        id={sectionId}
+                        className="scroll-mt-36 min-w-0"
+                      >
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4 mb-6 pb-4 border-b border-slate-200">
+                          <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                            <h2 className="text-2xl font-extrabold text-slate-900 break-words">
+                              {adapter.adapter_name}
+                            </h2>
+                            <span className="text-sm text-slate-500 tabular-nums">
+                              {adapter.tool_count} tool{adapter.tool_count === 1 ? '' : 's'}
+                            </span>
+                          </div>
+                          {latest && (
+                            <span className="text-xs text-slate-400 font-mono shrink-0 sm:text-right">
+                              updated {latest}
+                            </span>
+                          )}
                         </div>
-                        {latest && (
-                          <span className="text-xs text-slate-400 font-mono shrink-0 sm:text-right">
-                            updated {latest}
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid min-w-0 w-full grid-cols-1 xl:grid-cols-2 gap-6">
-                        {adapter.tools.map((tool) => (
-                          <ToolCard key={`${adapter.adapter_name}-${tool.tool_name}`} tool={tool} />
-                        ))}
-                      </div>
-                    </section>
-                  )
-                })}
+                        <div className="grid min-w-0 w-full grid-cols-1 xl:grid-cols-2 gap-6">
+                          {adapter.tools.map((tool) => (
+                            <ToolCard key={`${adapter.adapter_name}-${tool.tool_name}`} tool={tool} />
+                          ))}
+                        </div>
+                      </section>
+                    )
+                  })}
+                </div>
+                {displayAdapters.length > 1 && <TableOfContents items={tocItems} />}
               </div>
             )}
           </>
