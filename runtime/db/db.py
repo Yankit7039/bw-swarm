@@ -126,6 +126,21 @@ async def create_run(
         await session.commit()
 
 
+async def reset_run_for_queue_retry(run_id: UUID) -> None:
+    """Set status back to queued and clear orchestration fields after a retryable sandbox timeout."""
+    now = datetime.now(timezone.utc)
+    async with async_session_factory() as session:
+        row = await session.get(Run, run_id)
+        if row is None:
+            return
+        row.status = "queued"
+        row.updated_at = now
+        row.error_message = None
+        row.assigned_pod = None
+        row.sandbox_claim_name = None
+        await session.commit()
+
+
 async def get_run(run_id: UUID) -> dict | None:
     async with async_session_factory() as session:
         row = await session.get(Run, run_id)

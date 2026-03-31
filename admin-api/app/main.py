@@ -1,3 +1,7 @@
+import os
+from contextlib import asynccontextmanager
+
+import redis.asyncio as redis_async
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,24 +13,30 @@ from app.routers import webhooks as webhooks_router
 from app.routers import adapters as adapters_router
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379").strip()
+    app.state.redis = redis_async.from_url(redis_url, decode_responses=True)
+    try:
+        yield
+    finally:
+        await app.state.redis.aclose()
+
+
 app = FastAPI(
-  title="SWARM Admin API",
-  description="Admin API for templates (including PATCH workflow YAML), runs, and run_events over the shared runtime Postgres database.",
+    title="SWARM Admin API",
+    description="Admin API for templates (including PATCH workflow YAML), runs, and run_events over the shared runtime Postgres database.",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
-  CORSMiddleware,
-  allow_origins=["*"],
-  allow_credentials=False,
-  allow_methods=["*"],
-  allow_headers=["*"],
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def startup() -> None:
-  await init_db()
-
 
 app.include_router(health_router.router)
 app.include_router(templates_router.router)

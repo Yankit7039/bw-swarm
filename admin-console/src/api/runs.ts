@@ -1,5 +1,4 @@
 import { adminApi } from './adminClient'
-import { runtimeApi } from './runtimeClient'
 import type { Run } from '../types/common'
 import type { PaginatedResponse } from '../types/template'
 
@@ -46,7 +45,7 @@ export const runsApi = {
   },
 
   trigger: async ({ template_id, order_id }: TriggerRunRequest): Promise<{ run_id: string }> => {
-    const response = await runtimeApi.post('/runs', {
+    const response = await adminApi.post('/runs/enqueue', {
       template_id,
       payload: { order_id },
     })
@@ -59,7 +58,7 @@ export const runsApi = {
     await Promise.all(
       order_ids.map(async (order_id) => {
         try {
-          const response = await runtimeApi.post('/runs', {
+          const response = await adminApi.post('/runs/enqueue', {
             template_id,
             payload: { order_id },
           })

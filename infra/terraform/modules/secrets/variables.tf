@@ -74,3 +74,9 @@ variable "agentmail_webhook_secret" {
   sensitive   = true
 }
 
+variable "redis_url" {
+  description = "Redis URL for runtime queue and admin API enqueue (e.g. redis://elasticache:6379)."
+  type        = string
+  sensitive   = false
+}
+

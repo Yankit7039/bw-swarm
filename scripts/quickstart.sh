@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Kind cluster quickstart — create cluster, build/load images, apply manifests.
-# Postgres runs in-cluster only.
+# Postgres and Redis run in-cluster. Order ingestion: Admin API -> Redis Stream -> runtime queue worker.
 # Run from repo root:
 #   OPENROUTER_API_KEY=sk-or-v1-... ./scripts/quickstart.sh
 #   ./scripts/quickstart.sh sk-or-v1-...
+# Optional — Redis URL stored as adk-secrets key redis-url (default points at in-cluster Service `redis:6379`):
+#   REDIS_URL=redis://redis:6379 ./scripts/quickstart.sh
 # Optional (AgentMail — adapter MCP send_email; leave unset to use mock sends):
 #   AGENTMAIL_API_KEY=... AGENTMAIL_INBOX_ID=agent@... ./scripts/quickstart.sh
 # Optional (Jira — adapter MCP Jira tools for ticket-email-routing and network-ops-l1l2-triage):
@@ -51,6 +53,7 @@ JIRA_API_TOKEN="${JIRA_API_TOKEN:-}"
 JIRA_BASE="${JIRA_BASE:-https://swarm-bw.atlassian.net}"
 JIRA_WEBHOOK_SECRET="${JIRA_WEBHOOK_SECRET:-}"
 AGENTMAIL_WEBHOOK_SECRET="${AGENTMAIL_WEBHOOK_SECRET:-}"
+REDIS_URL="${REDIS_URL:-redis://redis:6379}"
 if [ -z "$OPENROUTER_API_KEY" ] || [ "$OPENROUTER_API_KEY" = "sk-or-v1-..." ]; then
   echo -e "${RED}OPENROUTER_API_KEY is not set.${NC}"
   echo -e "${YELLOW}Set it via env or first arg, for example:${NC}"
@@ -83,7 +86,7 @@ kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/downl
 kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.1.1/extensions.yaml
 
 echo
-echo -e "${BLUE}==> 5. Create secret (adk-secrets)${NC}"
+echo -e "${BLUE}==> 5. Create / refresh secret (adk-secrets, includes redis-url for queue)${NC}"
 kubectl create secret generic adk-secrets \
   --from-literal=database-url='postgresql+asyncpg://swarm:swarm@postgres:5432/swarm' \
   --from-literal=openrouter-api-key="$OPENROUTER_API_KEY" \
@@ -94,13 +97,18 @@ kubectl create secret generic adk-secrets \
   --from-literal=jira-base="$JIRA_BASE" \
   --from-literal=jira-webhook-secret="$JIRA_WEBHOOK_SECRET" \
   --from-literal=agentmail-webhook-secret="$AGENTMAIL_WEBHOOK_SECRET" \
-  >/dev/null 2>&1 || {
-  echo -e "${YELLOW}Secret adk-secrets already exists, reusing it.${NC}"
-}
+  --from-literal=redis-url="$REDIS_URL" \
+  --dry-run=client -o yaml | kubectl apply -f -
 
 echo
-echo -e "${BLUE}==> 6. Apply manifests (Postgres in-cluster)${NC}"
+echo -e "${BLUE}==> 6. Apply Postgres + Redis, then wait for them${NC}"
 kubectl apply -f infra/k8s/postgres.yaml
+kubectl apply -f infra/k8s/redis.yaml
+kubectl rollout status deployment/postgres --timeout=120s
+kubectl rollout status deployment/redis --timeout=120s
+
+echo
+echo -e "${BLUE}==> 7. Apply app manifests (adapter, runtime, warm pool, admin-api)${NC}"
 kubectl apply -f infra/k8s/adapter-deployment.yaml
 kubectl apply -f infra/k8s/runtime-rbac.yaml
 kubectl apply -f infra/k8s/runtime-deployment.yaml
@@ -108,12 +116,12 @@ kubectl apply -f infra/k8s/warmpool-swarm-core.yaml
 kubectl apply -f infra/k8s/admin-api-deployment.yaml
 
 echo
-echo -e "${BLUE}==> 7. Wait for runtime deployment${NC}"
+echo -e "${BLUE}==> 8. Wait for runtime and admin-api${NC}"
 kubectl rollout status deployment/runtime --timeout=120s
 kubectl rollout status deployment/admin-api --timeout=120s
 
 echo
-echo -e "${BLUE}==> 8. Current pods${NC}"
+echo -e "${BLUE}==> 9. Current pods${NC}"
 kubectl get pods
 
 echo
@@ -121,3 +129,4 @@ echo -e "${GREEN}✓ Quickstart complete.${NC}"
 echo -e "${BLUE}Runtime:${NC} http://localhost:30080"
 echo -e "${BLUE}Admin API:${NC} http://localhost:30081"
 echo -e "${BLUE}Watch pods:${NC} kubectl get pods -w"
+echo -e "${YELLOW}Tip:${NC} Point the admin console at the API with VITE_ADMIN_API_URL=http://localhost:30081 (triggers use POST /runs/enqueue)."

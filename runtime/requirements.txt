@@ -5,3 +5,4 @@ asyncpg
 httpx
 python-dotenv
 kubernetes
+redis>=5.0

@@ -13,6 +13,7 @@ locals {
     "jira-base"            = var.jira_base
     "jira-webhook-secret"       = var.jira_webhook_secret
     "agentmail-webhook-secret"  = var.agentmail_webhook_secret
+    "redis-url"                 = var.redis_url
   })
 }
 

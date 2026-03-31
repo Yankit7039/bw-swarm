@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, MetaData, Table, Column, String, Text, DateTime, select, update
+from sqlalchemy import JSON, MetaData, Table, Column, String, Text, DateTime, insert, select, update
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
@@ -118,6 +118,28 @@ async def list_templates(limit: int = 50, offset: int = 0) -> list[dict[str, Any
             data["updated_at"] = _serialize_dt(data.get("updated_at"))
             out.append(data)
         return out
+
+
+async def create_run_queued(run_id: UUID, template_id: str, payload: dict) -> None:
+    """Insert a run row with status ``queued``.
+
+    Schema is owned by ``runtime/db/migrations`` — keep this INSERT aligned with the ``runs``
+    table (see runtime ``Run`` model). If runtime adds NOT NULL columns without defaults,
+    update this function and migrations together.
+    """
+    async with session_factory() as session:
+        now = datetime.now(timezone.utc)
+        await session.execute(
+            insert(runs_table).values(
+                run_id=run_id,
+                template_id=template_id,
+                status="queued",
+                payload=payload,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        await session.commit()
 
 
 async def get_template(template_id: str) -> dict[str, Any] | None:

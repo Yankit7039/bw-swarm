@@ -1,4 +1,4 @@
-"""Runtime service: template-agnostic API for runs. FastAPI, Postgres only."""
+"""Runtime service: template-agnostic API for runs. FastAPI, Postgres, optional Redis queue."""
 
 import asyncio
 import base64
@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from runtime.claim_reconciler import claim_reconciler
 from runtime.followup_poller import followup_poller
 from runtime.pending_reply_worker import build_reply_merge_payload, pending_reply_worker
+from runtime.queue_worker import queue_worker
 from runtime.db import (
     create_run,
     enqueue_pending_inbound,
@@ -58,6 +59,24 @@ async def startup():
     asyncio.create_task(claim_reconciler())
     asyncio.create_task(followup_poller())
     asyncio.create_task(pending_reply_worker())
+
+    redis_url = os.environ.get("REDIS_URL", "").strip()
+    if redis_url:
+        import redis.asyncio as redis_async
+
+        r = redis_async.from_url(redis_url, decode_responses=True)
+        app.state.redis = r
+        asyncio.create_task(queue_worker(r))
+        LOG.info("Redis queue worker started (REDIS_URL set)")
+    else:
+        LOG.warning("REDIS_URL not set; Redis queue worker disabled")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    r = getattr(app.state, "redis", None)
+    if r is not None:
+        await r.aclose()
 
 
 @app.post("/runs")

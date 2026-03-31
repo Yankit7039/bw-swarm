@@ -1,6 +1,6 @@
 # Kind cluster quickstart
 
-Postgres runs in-cluster only. Run from repo root.
+Postgres and Redis run in-cluster (Redis powers the Admin API enqueue path and runtime queue worker). Run from repo root.
 
 ## Using the script
 
@@ -27,6 +27,8 @@ Optional — `JIRA_WEBHOOK_SECRET` for the Runtime `POST /webhooks/jira` endpoin
 
 Optional — `AGENTMAIL_WEBHOOK_SECRET` for the Runtime `POST /webhooks/agentmail` endpoint (HMAC signing secret; stored as `agentmail-webhook-secret` in `adk-secrets`, same as Terraform on AWS). Omit or leave empty if you are not testing AgentMail inbound webhooks locally.
 
+Optional — `REDIS_URL` (default `redis://redis:6379`) stored as `redis-url` in `adk-secrets` for the queue.
+
 ```bash
 JIRA_WEBHOOK_SECRET=your-webhook-bearer-token AGENTMAIL_WEBHOOK_SECRET=your-agentmail-webhook-secret OPENROUTER_API_KEY=sk-or-v1-... ./scripts/quickstart.sh
 ```
@@ -37,9 +39,8 @@ Or pass OpenRouter key as the first argument:
 ./scripts/quickstart.sh sk-or-v1-your-key-here
 ```
 
-The script creates the Kind cluster, builds and loads images, installs agent-sandbox CRDs, creates the secret, and applies all manifests for:
+The script creates the Kind cluster, builds and loads images, installs agent-sandbox CRDs, creates or updates the secret (including `redis-url`), applies Postgres and Redis, waits for them, then applies:
 
-- Postgres
 - Adapter service (FastAPI + MCP)
 - Runtime
 - Warm pool: `swarm-core-pool` (shared by all templates)
@@ -98,13 +99,17 @@ kubectl create secret generic adk-secrets \
   --from-literal=jira-api-token='' \
   --from-literal=jira-base='https://swarm-bw.atlassian.net' \
   --from-literal=jira-webhook-secret='' \
-  --from-literal=agentmail-webhook-secret=''
+  --from-literal=agentmail-webhook-secret='' \
+  --from-literal=redis-url='redis://redis:6379'
 ```
 
-### 6. Apply manifests (Postgres in-cluster)
+### 6. Apply manifests (Postgres + Redis in-cluster)
 
 ```bash
 kubectl apply -f infra/k8s/postgres.yaml
+kubectl apply -f infra/k8s/redis.yaml
+kubectl rollout status deployment/postgres --timeout=120s
+kubectl rollout status deployment/redis --timeout=120s
 kubectl apply -f infra/k8s/adapter-deployment.yaml
 kubectl apply -f infra/k8s/runtime-rbac.yaml
 kubectl apply -f infra/k8s/runtime-deployment.yaml

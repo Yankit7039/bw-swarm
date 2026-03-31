@@ -1,7 +1,7 @@
 # Runtime service — template-agnostic API for runs. Runs in cluster to create SandboxClaims.
 # Build from repo root: docker build -f runtime/Dockerfile -t swarm-runtime:latest .
 # Load into kind: kind load docker-image swarm-runtime:latest
-# Requires adk-secrets with key database-url (postgresql+asyncpg://...@host.docker.internal:5432/swarm).
+# Requires adk-secrets: database-url, redis-url (e.g. redis://host.docker.internal:6379 for local Redis).
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -33,6 +33,11 @@ spec:
                 secretKeyRef:
                   name: adk-secrets
                   key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: redis-url
             - name: JIRA_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:

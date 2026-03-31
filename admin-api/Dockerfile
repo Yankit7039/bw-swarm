@@ -16,7 +16,8 @@ RUN pip install --no-cache-dir \
     "uvicorn[standard]" \
     "sqlalchemy[asyncio]" \
     asyncpg \
-    httpx
+    httpx \
+    "redis>=5.0"
 
 COPY admin-api/app /app/app
 

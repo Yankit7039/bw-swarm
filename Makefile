@@ -87,6 +87,9 @@ _check-env:
 	@command -v kubectl >/dev/null 2>&1 || { echo "ERROR: kubectl not found"; exit 1; }
 	@command -v curl >/dev/null 2>&1 || { echo "ERROR: curl not found"; exit 1; }
 
+# First prod deploy: ElastiCache adds ~5–10 min to apply. After apply, External Secrets syncs
+# redis-url into adk-secrets; if runtime/admin-api pods started before that key existed, restart:
+#   kubectl rollout restart deployment/runtime deployment/admin-api
 _tf-apply:
 	@echo "==> [2/7] Terraform apply (workspace: $(TF_WORKSPACE))"
 	terraform -chdir=$(TF_DIR) workspace select $(TF_WORKSPACE) 2>/dev/null || \
@@ -116,6 +119,8 @@ _build-push:
 	  docker push $$ecr_repo:latest; \
 	done
 
+# If pods crash on first deploy with missing adk-secrets key redis-url, wait for ESO sync then:
+#   kubectl rollout restart deployment/runtime deployment/admin-api
 _k8s-apply:
 	@echo "==> [6/7] Applying Kubernetes manifests"
 	$(eval SECRET_NAME := $(shell terraform -chdir=$(TF_DIR) output -raw adk_secrets_arn | sed 's|arn:aws:secretsmanager:[^:]*:[^:]*:secret:||' | sed 's|-[^-]*$$||'))

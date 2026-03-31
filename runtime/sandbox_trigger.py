@@ -22,6 +22,14 @@ ENTRYPOINT_PORT = int(os.environ.get("ENTRYPOINT_PORT", "8888"))
 LOG = logging.getLogger(__name__)
 
 
+class QueueRetryableError(Exception):
+    """Pod not ready in time; run reset to queued; Redis message must not be ACKed."""
+
+
+class QueuePermanentError(Exception):
+    """Non-retryable queue failure; run marked failed; message should go to DLQ and be ACKed."""
+
+
 def _sandbox_attempt_from_payload(payload: dict) -> int:
     """0 = initial POST /runs; follow-up pods use followup_context.followup_attempt_number."""
     fc = payload.get("followup_context") if isinstance(payload, dict) else None
@@ -195,3 +203,69 @@ async def trigger_sandbox_post_run(run_id: uuid.UUID, template_id: str, payload:
 async def trigger_run(run_id: uuid.UUID, template_id: str, payload: dict) -> None:
     """Enqueue a new run: SandboxClaim + POST /run (same as trigger_sandbox_post_run)."""
     await trigger_sandbox_post_run(run_id, template_id, payload)
+
+
+async def trigger_run_for_queue(run_id: uuid.UUID, template_id: str, payload: dict) -> None:
+    """
+    Same as trigger_sandbox_post_run, but pod assignment timeout is retryable:
+    deletes the claim, resets the run to queued, and raises QueueRetryableError (no ACK).
+    Other failures raise QueuePermanentError after marking the run failed.
+    """
+    from runtime.db import get_template, reset_run_for_queue_retry, update_run_status
+
+    template = await get_template(template_id)
+    if not template:
+        await update_run_status(run_id, "failed", error_message=f"Template '{template_id}' not found")
+        raise QueuePermanentError(f"Template '{template_id}' not found")
+
+    warm_pool_ref = template.get("warm_pool_ref")
+    if not warm_pool_ref:
+        await update_run_status(run_id, "failed", error_message="Template has no warm_pool_ref")
+        raise QueuePermanentError("Template has no warm_pool_ref")
+
+    attempt = _sandbox_attempt_from_payload(payload)
+    base = f"run-{run_id.hex[:12]}-a{attempt}"
+    if isinstance(payload, dict) and payload.get("reply_context"):
+        claim_name = f"{base}-reply"
+    else:
+        claim_name = base
+    namespace = SANDBOX_NAMESPACE
+    created = _create_sandbox_claim(claim_name, warm_pool_ref, namespace)
+
+    if not created:
+        await update_run_status(
+            run_id,
+            "failed",
+            sandbox_claim_name=claim_name,
+            error_message="Failed to create SandboxClaim (no K8s or claim failed)",
+        )
+        raise QueuePermanentError("Failed to create SandboxClaim")
+
+    hostname = await asyncio.get_event_loop().run_in_executor(
+        None, _get_pod_hostname_for_claim_sync, claim_name, namespace
+    )
+
+    if not hostname:
+        await asyncio.get_event_loop().run_in_executor(
+            None, _delete_sandbox_claim, claim_name, namespace
+        )
+        await reset_run_for_queue_retry(run_id)
+        raise QueueRetryableError("SandboxClaim timed out waiting for pod")
+
+    await update_run_status(run_id, "running", assigned_pod=hostname, sandbox_claim_name=claim_name)
+
+    if not httpx:
+        await update_run_status(run_id, "failed", error_message="httpx not installed")
+        raise QueuePermanentError("httpx not installed")
+
+    url = f"http://{hostname}:{ENTRYPOINT_PORT}/run"
+    body = {"run_id": str(run_id), "payload": payload}
+    timeout_s = float(os.environ.get("SANDBOX_POST_TIMEOUT", "60"))
+    async with httpx.AsyncClient(timeout=timeout_s) as http_client:
+        try:
+            r = await http_client.post(url, json=body)
+            r.raise_for_status()
+        except Exception as e:
+            msg = str(e).strip() or f"{type(e).__name__}"
+            await update_run_status(run_id, "failed", error_message=f"POST /run failed: {msg}")
+            raise QueuePermanentError(f"POST /run failed: {msg}") from e

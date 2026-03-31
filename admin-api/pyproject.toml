@@ -1,7 +1,7 @@
 [project]
 name = "admin-api"
 version = "0.1.0"
-description = "SWARM Admin API: read-only FastAPI service over runtime Postgres (templates, runs, run_events)."
+description = "SWARM Admin API: templates, runs, run_events, and POST /runs/enqueue over shared runtime Postgres and Redis."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi",
@@ -9,6 +9,7 @@ dependencies = [
   "sqlalchemy[asyncio]",
   "asyncpg",
   "httpx",
+  "redis>=5.0",
 ]
 
 [build-system]

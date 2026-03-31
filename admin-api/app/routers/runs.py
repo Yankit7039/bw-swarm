@@ -1,7 +1,9 @@
-from typing import List
+import json
+import uuid
 from uuid import UUID
+from typing import List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app import db
 from app.schemas.run import Run
@@ -9,6 +11,37 @@ from app.schemas.event import RunEvent
 
 
 router = APIRouter(prefix="/runs", tags=["runs"])
+
+
+@router.post("/enqueue")
+async def enqueue_run(request: Request, body: dict) -> dict:
+    """Create a run row (status ``queued``), push to Redis Stream, return immediately."""
+    template_id = body.get("template_id")
+    payload = body.get("payload")
+    if not template_id:
+        raise HTTPException(status_code=422, detail="template_id is required")
+    if payload is None:
+        payload = {}
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=422, detail="payload must be an object")
+
+    template = await db.get_template(template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
+
+    run_id = uuid.uuid4()
+    await db.create_run_queued(run_id, template_id, payload)
+
+    redis_client = request.app.state.redis
+    await redis_client.xadd(
+        "swarm:runs:queue",
+        {
+            "run_id": str(run_id),
+            "template_id": template_id,
+            "payload": json.dumps(payload),
+        },
+    )
+    return {"run_id": str(run_id), "template_id": template_id, "status": "queued"}
 
 
 @router.get("/", response_model=List[Run])
