@@ -1,11 +1,15 @@
-import { useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ArrowRight, GitBranch, ListOrdered } from 'lucide-react'
 import { Layout } from '../../components/layout/Layout'
 import { useExecutionMesh } from './hooks/useExecutionMesh'
+import { useMeshFlowGeometry, type MeshFlowAnchors } from './hooks/useMeshFlowGeometry'
 import { IngestionQueue } from './components/IngestionQueue'
 import { OrchestratorHub } from './components/OrchestratorHub'
 import { SwarmNodesPanel } from './components/SwarmNodesPanel'
+import { MeshFlowOverlay } from './components/MeshFlowOverlay'
+
+const MESH_CLUSTER_IDS = ['diagnosis', 'healing', 'alerting', 'followup'] as const
 
 interface ExecutionMeshParams {
   templateId: string
@@ -40,13 +44,67 @@ export function ExecutionMeshViz() {
   const params = useExecutionMeshParams()
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
 
-  const { state, isLoading, allRunsComplete } = useExecutionMesh({
+  const { state, isLoading, allRunsComplete, displayOrder, stats } = useExecutionMesh({
     templateId: params?.templateId || '',
     prefix: params?.prefix || 'ORD-',
     start: params?.start || 1,
     count: params?.count || 10,
     startedAt: params?.startedAt,
     selectedOrderId,
+  })
+
+  const meshRef = useRef<HTMLDivElement>(null)
+  const anchorsRef = useRef<MeshFlowAnchors>({ queue: null, hub: null, clusters: {} })
+  const [anchorRevision, setAnchorRevision] = useState(0)
+
+  const bumpAnchors = useCallback(() => setAnchorRevision((n) => n + 1), [])
+
+  useLayoutEffect(() => {
+    const root = meshRef.current
+    if (!root) return
+
+    const focusId = displayOrder?.orderId
+    const nextQueue =
+      focusId != null && focusId !== ''
+        ? root.querySelector<HTMLElement>(`[data-mesh-queue-order="${CSS.escape(focusId)}"]`)
+        : null
+    const nextHub = root.querySelector<HTMLElement>('[data-mesh-hub="core"]')
+
+    const a = anchorsRef.current
+    let changed = false
+
+    if (a.queue !== nextQueue) {
+      changed = true
+      a.queue = nextQueue
+    }
+    if (a.hub !== nextHub) {
+      changed = true
+      a.hub = nextHub
+    }
+
+    for (const id of MESH_CLUSTER_IDS) {
+      const el = root.querySelector<HTMLElement>(`[data-mesh-cluster="${CSS.escape(id)}"]`)
+      const prev = a.clusters[id] ?? null
+      const next = el ?? null
+      if (prev !== next) {
+        changed = true
+        if (next) a.clusters[id] = next
+        else delete a.clusters[id]
+      }
+    }
+
+    if (changed) bumpAnchors()
+  }, [displayOrder?.orderId, state.clusters, bumpAnchors])
+
+  const activeClusterId = state.orchestrator.targetClusterId ?? null
+  const showHubToCluster = state.orchestrator.isActive && !!activeClusterId
+  const flowActive = state.orchestrator.isActive && !allRunsComplete
+  const flowTokenLabel = displayOrder?.orderId ?? ''
+
+  const { paths } = useMeshFlowGeometry(meshRef, anchorsRef, {
+    activeClusterId,
+    showHubToCluster,
+    anchorRevision,
   })
 
   if (!params) {
@@ -56,7 +114,7 @@ export function ExecutionMeshViz() {
           <div className="text-center">
             <p className="text-lg text-slate-500">Missing or invalid visualization parameters.</p>
             <Link to="/test-runs" className="mt-4 inline-flex items-center gap-2 text-primary hover:underline">
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="h-4 w-4" />
               Back to Test Runs
             </Link>
           </div>
@@ -70,7 +128,7 @@ export function ExecutionMeshViz() {
       <Layout>
         <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
           <div className="flex items-center gap-3 text-slate-500">
-            <div className="w-5 h-5 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" />
             <span>Loading...</span>
           </div>
         </div>
@@ -88,123 +146,110 @@ export function ExecutionMeshViz() {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(79, 70, 229, 0.1);
+          background: rgba(79, 70, 229, 0.12);
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(79, 70, 229, 0.2);
+          background: rgba(79, 70, 229, 0.22);
         }
       `}</style>
-      <div className="h-[calc(100vh-4rem)] flex flex-col bg-[#F8FAFC]">
-        {/* Clean Header */}
-        <header className="bg-slate-50 border-slate-200 px-4 py-6">
-          <div className="flex items-center justify-between">
-            {/* Left: Back + Title */}
-            {/* <div className="flex items-center gap-3">
+      <div className="flex h-[calc(100vh-4rem)] flex-col bg-slate-100/90">
+        <header className="shrink-0 border-b border-slate-200/80 bg-white px-4 py-3 shadow-sm">
+          <div className="mx-auto flex max-w-[1600px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
               <Link
                 to="/test-runs"
-                className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition"
+                className="shrink-0 rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                aria-label="Back to test runs"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="h-4 w-4" />
               </Link>
-              <div>
-                <h1 className="text-sm font-semibold text-slate-900">
-                  {params.name || 'Execution Mesh'}
+              <div className="min-w-0">
+                <h1 className="truncate text-sm font-semibold text-slate-900">
+                  {params.name || 'Execution mesh'}
                 </h1>
                 <p className="text-xs text-slate-500">
-                  {templateName} · {params.count} orders
+                  {params.count} orders · live flow from ingest to clusters
                 </p>
               </div>
-            </div> */}
-
-            {/* Center: Stats */}
-            {/* <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">Total</span>
-                <span className="text-sm font-semibold text-slate-900">{stats.total}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                <span className="text-xs text-slate-500">Running</span>
-                <span className="text-sm font-semibold text-indigo-600">{stats.running}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-xs text-slate-500">Completed</span>
-                <span className="text-sm font-semibold text-emerald-600">{stats.completed}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-rose-500" />
-                <span className="text-xs text-slate-500">Failed</span>
-                <span className="text-sm font-semibold text-rose-600">{stats.failed}</span>
-              </div>
-            </div> */}
-
-            {/* Right: Controls */}
-            {/* <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsPaused(!isPaused)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors"
-                style={{
-                  backgroundColor: isPaused ? '#fef3c7' : '#f8fafc',
-                  borderColor: isPaused ? '#fcd34d' : '#e2e8f0',
-                  color: isPaused ? '#b45309' : '#64748b',
-                }}
-              >
-                {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                {isPaused ? 'Resume' : 'Pause'}
-              </button>
-              <button
-                onClick={() => window.location.reload()}
-                className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-            </div> */}
-          </div>
-
-          {/* Progress Bar */}
-          {/* <div className="mt-3 flex items-center gap-3">
-            <Activity className="w-4 h-4 text-slate-400" />
-            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-indigo-500 rounded-full transition-all duration-500"
-                style={{ width: `${stats.progress}%` }}
-              />
             </div>
-            <span className="text-xs font-medium text-slate-600 w-12 text-right">
-              {stats.progress.toFixed(0)}%
-            </span>
-          </div> */}
+
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200/80 bg-slate-50 px-2 py-1 font-medium">
+                <ListOrdered className="h-3.5 w-3.5 text-slate-400" />
+                {stats.running} running
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200/80 bg-slate-50 px-2 py-1 font-medium">
+                <GitBranch className="h-3.5 w-3.5 text-emerald-500" />
+                {stats.completed} done
+              </span>
+              {stats.failed > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-rose-100 bg-rose-50 px-2 py-1 font-medium text-rose-700">
+                  {stats.failed} failed
+                </span>
+              )}
+            </div>
+
+            <div
+              className="hidden items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 md:flex"
+              aria-hidden
+            >
+              <span>Ingest</span>
+              <ArrowRight className="h-3 w-3" />
+              <span>Route</span>
+              <ArrowRight className="h-3 w-3" />
+              <span>Execute</span>
+            </div>
+          </div>
         </header>
 
-        {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left: Queue */}
-          <div className="w-80 bg-slate-50 border-r border-slate-200/60 shrink-0 shadow-sm">
-            <IngestionQueue
-              orders={state.orders}
-              selectedOrderId={selectedOrderId}
-              onSelectOrder={setSelectedOrderId}
-            />
-          </div>
+        <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
+          <div
+            ref={meshRef}
+            className="relative flex h-full min-h-0 min-w-[920px] flex-1 overflow-visible"
+          >
+            <aside className="relative z-10 flex w-[min(100%,320px)] shrink-0 flex-col border-r border-slate-200/70 bg-slate-50/95">
+              <IngestionQueue
+                orders={state.orders}
+                selectedOrderId={selectedOrderId}
+                onSelectOrder={setSelectedOrderId}
+                meshFocusOrderId={displayOrder?.orderId ?? null}
+              />
+            </aside>
 
-          {/* Center: Orchestrator */}
-          <div className="flex-1 relative overflow-hidden mt-[-170px]">
-            <OrchestratorHub
-              isActive={state.orchestrator.isActive}
-              currentAction={state.orchestrator.currentAction}
-              activeConnections={state.activeConnections}
-            />
-          </div>
+            <main className="relative z-10 min-w-0 flex-1 bg-slate-50/40">
+              <div className="flex h-full min-h-0 flex-col border-x border-slate-200/40 bg-white/30">
+                {/* <p className="shrink-0 border-b border-slate-100 bg-white/80 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  2 · Route
+                </p> */}
+                <div className="min-h-0 flex-1">
+                  <OrchestratorHub
+                    isActive={state.orchestrator.isActive}
+                    currentAction={state.orchestrator.currentAction}
+                    targetClusterId={state.orchestrator.targetClusterId}
+                    meshOrderId={displayOrder?.orderId ?? null}
+                  />
+                </div>
+              </div>
+            </main>
 
-          {/* Right: Swarm Nodes */}
-          <div className="w-[420px] bg-slate-50/80 border-l border-slate-200/60 shrink-0 shadow-sm">
-            <SwarmNodesPanel
-              clusters={state.clusters}
-              activeConnections={state.activeConnections}
-              allRunsComplete={allRunsComplete}
-              selectedOrderId={selectedOrderId}
+            <aside className="relative z-10 flex w-[min(100%,420px)] shrink-0 flex-col border-l border-slate-200/70 bg-white">
+              <SwarmNodesPanel
+                clusters={state.clusters}
+                activeConnections={state.activeConnections}
+                allRunsComplete={allRunsComplete}
+                selectedOrderId={displayOrder?.orderId ?? selectedOrderId}
+                focusedOrder={displayOrder}
+              />
+            </aside>
+
+            {/* After columns so z-30 draws on top; pointer-events-none keeps panels clickable */}
+            <MeshFlowOverlay
+              paths={paths}
+              orchestratorActive={state.orchestrator.isActive}
+              activeClusterId={activeClusterId}
+              flowActive={flowActive}
+              flowTokenLabel={flowTokenLabel}
             />
           </div>
         </div>

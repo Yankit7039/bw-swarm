@@ -4,6 +4,13 @@ export interface OrderCard {
   statusText: string
   progress: number
   runId?: string
+  /** From API when a run is matched */
+  templateId?: string
+  apiStatus?: string
+  createdAt?: string | null
+  updatedAt?: string | null
+  completedAt?: string | null
+  errorMessage?: string | null
 }
 
 export interface SubTask {

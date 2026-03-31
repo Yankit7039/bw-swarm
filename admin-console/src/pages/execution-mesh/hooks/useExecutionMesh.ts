@@ -189,6 +189,12 @@ export function useExecutionMesh({ templateId, prefix, start, count, startedAt, 
         statusText: getStatusText(matchingRun || null),
         progress: calculateProgress(matchingRun || null),
         runId: matchingRun?.run_id,
+        templateId: matchingRun?.template_id,
+        apiStatus: matchingRun?.status,
+        createdAt: matchingRun?.created_at,
+        updatedAt: matchingRun?.updated_at,
+        completedAt: matchingRun?.completed_at,
+        errorMessage: matchingRun?.error_message,
       }
     })
   }, [expectedOrderIds, allRuns, startedAt, updateTick])
