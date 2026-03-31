@@ -1,7 +1,7 @@
 ---
-
-## title: Redis run queue
+title: Redis run queue
 description: How SWARM uses Redis Streams to hand off runs from fast HTTP paths to a background worker that claims warm pool pods and drives execution.
+---
 
 # Redis run queue
 
