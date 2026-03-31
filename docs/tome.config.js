@@ -1,9 +1,15 @@
 /** @type {import('@tomehq/core').TomeConfig} */
 export default {
-  name: "bw-swarm",
+  name: "Boring Workflows",
   theme: {
     preset: "amber",
     mode: "auto",
+    // Neutral sans + monospace: readable at length, standard for technical docs
+    fonts: {
+      heading: "Inter",
+      body: "Inter",
+      code: "JetBrains Mono",
+    },
   },
   navigation: [
     {

@@ -7,28 +7,7 @@ description: How runs move through the runtime, Postgres, warm pool claims, sand
 
 ## Control plane overview
 
-```mermaid
-flowchart LR
-  subgraph clients [Clients]
-    WH[Webhooks]
-    APIClient[API clients]
-    AC[Admin Console]
-  end
-  subgraph services [Services]
-    RT[runtime]
-    AA[admin-api]
-  end
-  DB[(Postgres)]
-  SB[Sandbox pods]
-
-  WH --> RT
-  APIClient --> RT
-  AC --> AA
-  RT --> DB
-  AA --> DB
-  RT --> SB
-  SB --> DB
-```
+![SWARM architecture: clients, runtime, admin-api, Postgres, warm pool pods, and adapter](/df1.png)
 
 ## Run lifecycle (initial trigger)
 

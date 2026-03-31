@@ -14,33 +14,7 @@ description: High-level architecture of SWARM services, Postgres, warm pool pods
 5. **Follow-up** and **inbound reply** paths are coordinated by **runtime** background tasks (pollers/workers) that re-trigger the sandbox with merged payload context — see [Follow-up lifecycle](/concepts/follow-up-lifecycle).
 6. **Redis** (when configured) supports **async handoff** of runs from webhooks and Admin API enqueue to the runtime worker that drives the warm pool — see [Redis run queue](/concepts/redis-queue).
 
-```mermaid
-flowchart TB
-  subgraph clients [Clients]
-    WH[Webhooks]
-    API[API clients]
-    AC[Admin Console]
-  end
-  subgraph controlPlane [Control plane]
-    RT[runtime]
-    AA[admin-api]
-  end
-  subgraph data [Data]
-    DB[(Postgres)]
-  end
-  subgraph k8s [Kubernetes]
-    AD[adapter pod]
-    WP[swarm-core warm pool pods]
-  end
-  WH --> RT
-  API --> RT
-  AC --> AA
-  RT --> DB
-  AA --> DB
-  RT --> WP
-  WP --> AD
-  WP --> DB
-```
+![SWARM architecture: clients, runtime, admin-api, Postgres, warm pool pods, and adapter](/image3.png)
 
 ## Runtime vs admin-api vs adapter
 
