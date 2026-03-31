@@ -12,6 +12,7 @@ Values are often injected from Kubernetes **`adk-secrets`** (keys use **hyphens*
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | **`DATABASE_URL`** | yes* | `postgresql+asyncpg://swarm:swarm@localhost:5432/swarm` | Async Postgres URL |
+| **`REDIS_URL`** | no† | — | If set, enables the **Redis run queue** worker for webhook/enqueue handoff (see [Redis run queue](/concepts/redis-queue)) |
 | **`SANDBOX_NAMESPACE`** | no | `default` | Namespace for SandboxClaim |
 | **`ENTRYPOINT_PORT`** | no | `8888` | Target port on swarm-core pods |
 | **`SANDBOX_POST_TIMEOUT`** | no | `60` | Seconds for HTTP POST to pod |
@@ -23,6 +24,8 @@ Values are often injected from Kubernetes **`adk-secrets`** (keys use **hyphens*
 
 \*Strongly required in production; default only for local dev.
 
+†Omit **`REDIS_URL`** only if you do not use queue-backed paths; without it, **Jira** / **AgentMail** enqueue and similar flows cannot hand off work.
+
 **K8s:** mount from **`adk-secrets`** as env vars (see **`infra/k8s-aws/runtime-deployment.yaml`** patterns).
 
 ## Admin API
@@ -31,6 +34,7 @@ Values are often injected from Kubernetes **`adk-secrets`** (keys use **hyphens*
 |----------|----------|---------|-------------|
 | **`DATABASE_URL`** | yes | — | Same Postgres as runtime |
 | **`RUNTIME_URL`** | yes in cluster | `http://runtime:8000` | Forward webhooks to **`POST /runs`** |
+| **`REDIS_URL`** | for **`POST /runs/enqueue`** | `redis://localhost:6379` | Redis URL for enqueue (see [Redis run queue](/concepts/redis-queue)) |
 
 ## Admin Console (Vite)
 

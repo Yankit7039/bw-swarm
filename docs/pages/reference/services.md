@@ -13,12 +13,14 @@ description: Ports, responsibilities, and entrypoints for SWARM components.
 | **adapter** | MCP tool server + FastAPI **`/health`** | **`8080`** (in-cluster Service) | Mounted at **`/mcp`** (see **`MCP_MOUNT_PATH`**)
 | **swarm-core** (pod) | Workflow engine, **`POST /run`**, **`GET /health`** | **`8888`** (**`ENTRYPOINT_PORT`**) | **`python -m uvicorn swarm_core.entrypoint:app`**
 | **postgres** | Shared DB | **`5432`** (Compose) / **RDS** (EKS) | Compose or Terraform |
+| **redis** | Run queue for async webhook / enqueue handoff | **`6379`** (Compose) | **`REDIS_URL`** on **runtime** and **admin-api** when using the queue ([Redis run queue](/concepts/redis-queue)) |
 
 ## Environment (quick reference)
 
 | Variable | Used by | Purpose |
 |----------|---------|---------|
 | **`DATABASE_URL`** | runtime, admin-api, adapter (registry), swarm-core | Async SQLAlchemy / asyncpg URL |
+| **`REDIS_URL`** | runtime, admin-api | Enables [Redis run queue](/concepts/redis-queue) (runtime); required for **`POST /runs/enqueue`** on admin-api |
 | **`RUNTIME_URL`** | admin-api | Base URL for webhook forwarding (**`http://runtime:8000`** in cluster) |
 | **`VITE_ADMIN_API_URL`** | admin-console | Browser → Admin API |
 | **`VITE_RUNTIME_API_URL`** | admin-console | Optional direct runtime calls |

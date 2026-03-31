@@ -22,6 +22,7 @@ FastAPI service under **`admin-api/`**. Uses the **same Postgres** as the runtim
 | **GET** | **`/runs/`** | List runs; query: **`template_id`**, **`status`**, **`limit`**, **`offset`** |
 | **GET** | **`/runs/{run_id}`** | Single run |
 | **GET** | **`/runs/{run_id}/events`** | Ordered events for UI |
+| **POST** | **`/runs/enqueue`** | Create a run with **`status: queued`** and push to the **Redis** queue for the runtime worker. Body: **`{ "template_id": string, "payload": object }`**. Requires **`REDIS_URL`** (see [Redis run queue](/concepts/redis-queue)). |
 
 ## Webhooks
 

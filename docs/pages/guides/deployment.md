@@ -36,7 +36,7 @@ The root **`Makefile`** targets **`deploy`** and **`destroy`** with workspace se
 **`infra/docker/docker-compose.yml`** provides:
 
 - **postgres** — port **`5432`**
-- **redis** — port **`6379`** (available for other components; the runtime path is Postgres-centric)
+- **redis** — port **`6379`** (used by the **runtime** and **admin-api** for the [Redis run queue](/concepts/redis-queue); set **`REDIS_URL`** on those services when you rely on queued webhooks or **`POST /runs/enqueue`**)
 - **runtime** — image built from **`runtime/Dockerfile`**, port **`8000`**
 
 ```bash

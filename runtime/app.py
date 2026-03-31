@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from runtime.claim_reconciler import claim_reconciler
 from runtime.followup_poller import followup_poller
 from runtime.pending_reply_worker import build_reply_merge_payload, pending_reply_worker
-from runtime.queue_worker import queue_worker
+from runtime.queue_worker import STREAM_KEY, queue_worker
 from runtime.db import (
     create_run,
     enqueue_pending_inbound,
@@ -30,8 +30,6 @@ from runtime.db import (
     try_claim_run_for_reply,
 )
 from runtime.db.run_migrations import run_migrations
-from runtime.sandbox_trigger import trigger_sandbox_post_run
-
 LOG = logging.getLogger(__name__)
 
 JIRA_ISSUE_CREATED = "jira:issue_created"
@@ -172,16 +170,26 @@ async def _jira_webhook_task(order_id: str | None, body: dict) -> None:
         return
     LOG.info("Jira webhook received for %s, triggering %s run", order_id, template_id)
     run_id = uuid.uuid4()
-    await create_run(run_id, template_id, payload)
+    await create_run(run_id, template_id, payload, status="queued")
     await insert_run_event(
         run_id,
         "jira_webhook",
         f"Run triggered from Jira issue {order_id} (Jira webhook).",
         {"order_id": order_id, "template_id": template_id, "source": "jira_webhook"},
     )
-    from runtime.sandbox_trigger import trigger_run
-
-    await trigger_run(run_id, template_id, payload)
+    r = getattr(app.state, "redis", None)
+    if r is None:
+        LOG.error("Redis unavailable; cannot enqueue Jira webhook run %s", run_id)
+        return
+    await r.xadd(
+        STREAM_KEY,
+        {
+            "run_id": str(run_id),
+            "template_id": template_id,
+            "payload": json.dumps(payload),
+        },
+    )
+    LOG.info("Jira webhook run %s enqueued to Redis stream", run_id)
 
 
 def _verify_svix_signature(
@@ -295,7 +303,19 @@ async def _agentmail_webhook_task(body: dict) -> None:
         {"thread_id": thread_id, "run_id": str(run_id)},
     )
 
-    await trigger_sandbox_post_run(run_id, template_id, merged)
+    r = getattr(app.state, "redis", None)
+    if r is None:
+        LOG.error("Redis unavailable; cannot enqueue AgentMail reply run %s", run_id)
+        return
+    await r.xadd(
+        STREAM_KEY,
+        {
+            "run_id": str(run_id),
+            "template_id": template_id,
+            "payload": json.dumps(merged),
+        },
+    )
+    LOG.info("AgentMail reply for run %s enqueued to Redis stream", run_id)
 
 
 @app.post("/webhooks/agentmail")

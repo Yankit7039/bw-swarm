@@ -26,7 +26,7 @@ description: Technical documentation for the SWARM multi-agent orchestration pla
 
 | Area | Role |
 |------|------|
-| **runtime** | Orchestrator: `POST /runs`, webhooks (Jira, AgentMail), **sandbox trigger**, **follow-up poller**, **pending reply worker**, **claim reconciler** |
+| **runtime** | Orchestrator: `POST /runs`, webhooks (Jira, AgentMail), **Redis run queue** (when configured), **sandbox trigger**, **follow-up poller**, **pending reply worker**, **claim reconciler** |
 | **swarm-core** | Shared **workflow engine** (YAML + ADK) and **pod image**; MCP tools via **adapter**; writes **run_events** |
 | **warm pool** | Pre-started **swarm-core** pods on Kubernetes **agent-sandbox**; **runtime** claims a pod per run |
 | **admin-api** | Templates (incl. `PATCH` workflow YAML), runs, events, adapter registry — backs the console |
@@ -44,6 +44,7 @@ description: Technical documentation for the SWARM multi-agent orchestration pla
 
 - **[Architecture](/concepts/architecture)** — How services, Postgres, and pods fit together
 - **[Data flow](/concepts/data-flow)** — Runs, claims, events, follow-ups
+- **[Redis run queue](/concepts/redis-queue)** — Async handoff from webhooks and Admin API enqueue
 - **[Warm pool](/concepts/warm-pool)** — SandboxTemplate, SandboxWarmPool, SandboxClaim
 - **[Follow-up lifecycle](/concepts/follow-up-lifecycle)** — Scheduled follow-ups and engineer replies
 - **[Event system](/concepts/event-system)** — `run_events` and event types

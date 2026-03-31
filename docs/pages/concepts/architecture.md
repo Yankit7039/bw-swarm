@@ -12,6 +12,7 @@ description: High-level architecture of SWARM services, Postgres, warm pool pods
 3. **swarm-core** (inside the pod) validates YAML, runs the **ADK** (Agent Development Kit) **Runner** with a root agent built from stages/steps, and calls the **adapter** over **MCP** (Model Context Protocol) **Streamable HTTP** at `{ADAPTER_URL}/mcp`.
 4. **Admin API** exposes the same database to **Admin Console** for operations and template YAML management.
 5. **Follow-up** and **inbound reply** paths are coordinated by **runtime** background tasks (pollers/workers) that re-trigger the sandbox with merged payload context — see [Follow-up lifecycle](/concepts/follow-up-lifecycle).
+6. **Redis** (when configured) supports **async handoff** of runs from webhooks and Admin API enqueue to the runtime worker that drives the warm pool — see [Redis run queue](/concepts/redis-queue).
 
 ```mermaid
 flowchart TB
@@ -45,7 +46,7 @@ flowchart TB
 
 | Layer | Responsibility |
 |-------|----------------|
-| **Runtime** | Run creation, webhook ingress, **SandboxClaim** + `POST` to pod entrypoint, **follow-up poller**, **pending reply worker**, **claim reconciler** |
+| **Runtime** | Run creation, webhook ingress, **Redis run queue** (optional), **SandboxClaim** + `POST` to pod entrypoint, **follow-up poller**, **pending reply worker**, **claim reconciler** |
 | **Admin API** | Query and update API for operators; **does not** execute workflows in-process |
 | **Adapter** | MCP tool server: normalizes calls to external systems so workflows stay declarative |
 
@@ -65,6 +66,7 @@ Runtime and admin-api both use **`DATABASE_URL`** against the same Postgres. Mig
 ## Further reading
 
 - [Data flow](/concepts/data-flow)
+- [Redis run queue](/concepts/redis-queue)
 - [Warm pool](/concepts/warm-pool)
 - [Follow-up lifecycle](/concepts/follow-up-lifecycle)
 - [Event system](/concepts/event-system)

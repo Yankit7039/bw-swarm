@@ -15,6 +15,7 @@ export default {
       pages: [
         "concepts/architecture",
         "concepts/data-flow",
+        "concepts/redis-queue",
         "concepts/warm-pool",
         "concepts/follow-up-lifecycle",
         "concepts/event-system",

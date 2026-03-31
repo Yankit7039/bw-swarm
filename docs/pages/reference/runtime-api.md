@@ -13,7 +13,7 @@ FastAPI service under **`runtime/`**. Uses **`DATABASE_URL`** for **`runs`** and
 
 | Method | Path | Description |
 |--------|------|-------------|
-| **POST** | **`/runs`** | Create a run. Body: **`{ "template_id": string, "payload": object }`**. Returns **`run_id`**, **`template_id`**, **`status": "pending"`**. Enqueues sandbox trigger in the background. |
+| **POST** | **`/runs`** | Create a run. Body: **`{ "template_id": string, "payload": object }`**. Returns **`run_id`**, **`template_id`**, **`status": "pending"`**. Schedules sandbox trigger in the background on the runtime (**not** via the Redis queue path). Certain **webhooks** and **Admin API** **`/runs/enqueue`** use [Redis run queue](/concepts/redis-queue) instead. |
 | **GET** | **`/runs/{run_id}`** | Single run row: status, result, error, timestamps, payload, etc. |
 | **GET** | **`/runs/{run_id}/events`** | Ordered **`run_events`** for the run (UI / debugging). |
 
@@ -49,5 +49,6 @@ When the service is run with default FastAPI settings, interactive docs may be a
 
 ## Further reading
 
+- [Redis run queue](/concepts/redis-queue) — when webhooks and Admin enqueue use Redis
 - [Admin API](/reference/admin-api) — template webhooks that forward to **`POST /runs`**
 - [Event system](/concepts/event-system)

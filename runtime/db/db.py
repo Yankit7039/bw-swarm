@@ -111,6 +111,7 @@ async def create_run(
     template_id: str,
     payload: dict,
     *,
+    status: str = "pending",
     sandbox_claim_name: str | None = None,
 ) -> None:
     async with async_session_factory() as session:
@@ -118,7 +119,7 @@ async def create_run(
             Run(
                 run_id=run_id,
                 template_id=template_id,
-                status="pending",
+                status=status,
                 payload=payload,
                 sandbox_claim_name=sandbox_claim_name,
             )

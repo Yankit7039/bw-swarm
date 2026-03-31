@@ -93,7 +93,3 @@ sequenceDiagram
 ## Template registry
 
 Rows in **`templates`** include **`template_id`**, **`image`**, **`warm_pool_ref`**, optional **`workflow_yaml`**, and metadata used by the runtime to choose the warm pool and configuration.
-
-## Product-specific diagrams
-
-Some legacy sequence diagrams under `bible/diagrams/` (if present) describe product demos. For **orchestration mechanics**, treat this page and `runtime/README.md` in the repo as canonical.
