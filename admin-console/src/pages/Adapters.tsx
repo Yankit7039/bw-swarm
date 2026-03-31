@@ -8,6 +8,7 @@ import {
   Layers,
   Wrench,
   Search,
+  Plus,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { TableOfContents } from '../components/TableOfContents'
@@ -142,58 +143,63 @@ function ToolCard({ tool }: { tool: AdapterTool }) {
   const warnings = tool.docstring_warnings?.length ? tool.docstring_warnings : null
 
   return (
-    <div className="min-w-0 bg-white rounded-xl border border-slate-200 border-l-[3px] border-l-primary/25 shadow-sm hover:shadow-md hover:border-slate-300 hover:border-l-primary/35 transition-all p-5 flex flex-col gap-3 group">
-      <div className="min-w-0 flex flex-col gap-1">
-        <div className="flex items-start justify-between gap-2 min-w-0">
-          <h4 className="font-bold text-slate-900 text-base group-hover:text-primary transition-colors min-w-0 break-words">
+    <div className="min-w-0 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300/90 transition-all flex flex-col overflow-hidden group">
+      <div className="px-5 pt-5 pb-4 border-b border-slate-100/90 bg-gradient-to-b from-slate-50/40 to-white">
+        <div className="flex items-start justify-between gap-3 min-w-0">
+          <h4 className="font-bold text-slate-900 text-[15px] leading-snug group-hover:text-primary transition-colors min-w-0 break-words">
             {tool.tool_name}
           </h4>
-          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            <Wrench className="w-3 h-3" />
+          <span className="shrink-0 inline-flex items-center gap-1 rounded-md bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+            <Wrench className="w-3 h-3 opacity-80" aria-hidden />
             MCP
           </span>
         </div>
-        <code className="block text-xs font-mono bg-slate-100 text-slate-700 px-2 py-1.5 rounded-md max-w-full min-w-0 break-all overflow-x-auto">
+        <code className="mt-2.5 block text-xs font-mono text-slate-600 bg-slate-100/80 px-2.5 py-1.5 rounded-md max-w-full min-w-0 break-all">
           {tool.mcp_tool_name}
         </code>
         {tool.description && (
-          <p className="text-sm text-slate-600 leading-relaxed break-words">{tool.description}</p>
+          <p className="mt-3 text-sm text-slate-600 leading-relaxed break-words">{tool.description}</p>
         )}
       </div>
 
-      {params.length > 0 && (
-        <div>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tight mb-2">Parameters</p>
-          <ul className="space-y-2">
-            {params.map((p) => (
-              <li
-                key={p.name}
-                className="text-sm border-l-2 border-primary/30 pl-3 py-0.5 min-w-0 break-words"
-              >
-                <span className="font-mono font-semibold text-slate-800 break-all">{p.name}</span>
-                {p.required && <span className="text-rose-500 font-bold ml-0.5">*</span>}
-                <span className="ml-2 text-[11px] font-mono text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
-                  {p.typeLabel}
-                </span>
-                {p.description && (
-                  <p className="text-xs text-slate-500 mt-0.5">{p.description}</p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <div className="px-5 py-4 flex flex-col gap-4 flex-1">
+        {params.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">
+              Parameters
+            </p>
+            <div className="rounded-lg border border-slate-100 bg-slate-50/50 divide-y divide-slate-100/80">
+              {params.map((p) => (
+                <div key={p.name} className="px-3 py-2.5 min-w-0">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span className="font-mono text-sm font-semibold text-slate-800 break-all">
+                      {p.name}
+                      {p.required && <span className="text-rose-500 font-bold"> *</span>}
+                    </span>
+                    <span className="text-[10px] font-mono text-primary bg-primary/5 px-1.5 py-0.5 rounded">
+                      {p.typeLabel}
+                    </span>
+                  </div>
+                  {p.description && (
+                    <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{p.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-      {warnings && (
-        <div className="rounded-lg bg-amber-50 border border-amber-200/80 px-3 py-2 flex gap-2">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <ul className="text-xs text-amber-900 space-y-1 list-disc list-inside">
-            {warnings.map((w, i) => (
-              <li key={i}>{w}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {warnings && (
+          <div className="rounded-lg bg-amber-50/90 border border-amber-100 px-3 py-2.5 flex gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" aria-hidden />
+            <ul className="text-xs text-amber-900/90 space-y-1 list-disc list-inside leading-relaxed">
+              {warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -224,140 +230,159 @@ export const Adapters = () => {
     [displayAdapters]
   )
 
+  const totals = useMemo(() => {
+    if (!adapters?.length) return null
+    const toolTotal = adapters.reduce((n, a) => n + a.tool_count, 0)
+    return { adapters: adapters.length, tools: toolTotal }
+  }, [adapters])
+
   const hasSearch = searchQuery.trim().length > 0
   const noSearchResults = hasSearch && displayAdapters.length === 0
 
   return (
     <Layout>
-      <div className="w-full min-w-0 max-w-[1536px] mx-auto px-4 sm:px-6 pb-16">
-        <div className="rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm px-5 py-6 sm:px-8 sm:py-7 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div>
-              <button
-                type="button"
-                onClick={() => navigate('/templates')}
-                className="flex items-center gap-2 text-slate-500 hover:text-primary text-sm font-medium mb-3 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Swarms
-              </button>
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <Puzzle className="w-6 h-6" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Adapter tools</h1>
-                  <p className="text-slate-500 text-base mt-0.5">
-                    Reference for MCP tools available when authoring workflow YAML.
+      <div className="w-full px-6 lg:px-10 py-8">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
+          <div className="space-y-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate('/templates')}
+              className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-primary transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4 shrink-0" />
+              Back to Swarms
+            </button>
+            <div className="flex items-start gap-4">
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <Puzzle className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Adapter tools</h1>
+                <p className="text-slate-500 text-base mt-1 max-w-xl">
+                  MCP tools exposed by the adapter service—use these names and parameters when authoring workflow YAML.
+                </p>
+                {totals && (
+                  <p className="text-sm text-slate-400 mt-2 tabular-nums">
+                    <span className="font-semibold text-slate-600">{totals.adapters}</span> adapters ·{' '}
+                    <span className="font-semibold text-slate-600">{totals.tools}</span> tools
                   </p>
-                </div>
+                )}
               </div>
             </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <Link
+              to="/templates"
+              className="inline-flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-slate-50 transition-colors"
+            >
+              Swarm workflows
+            </Link>
             <Link
               to="/templates/new"
-              className="shrink-0 self-start text-sm font-bold text-primary hover:underline"
+              className="inline-flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg font-bold text-sm shadow-lg shadow-primary/20 hover:brightness-110 transition-all"
             >
+              <Plus className="w-4 h-4" />
               Create template
             </Link>
           </div>
         </div>
 
         {isLoading && (
-          <div className="text-center py-24">
-            <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto" />
-            <p className="text-slate-500 text-sm mt-4">Loading adapters…</p>
+          <div className="flex flex-col items-center justify-center py-24 rounded-xl border border-slate-100 bg-white">
+            <div className="animate-spin w-9 h-9 border-2 border-primary border-t-transparent rounded-full" />
+            <p className="text-slate-500 text-sm mt-4 font-medium">Loading adapters…</p>
           </div>
         )}
 
         {isError && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800 text-sm">
+          <div
+            role="alert"
+            className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-rose-800 text-sm"
+          >
             {(error as Error)?.message || 'Failed to load adapters'}
           </div>
         )}
 
         {!isLoading && !isError && adapters && adapters.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
-            <Layers className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-600 font-medium">No adapter tools registered yet</p>
-            <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">
-              When the adapter service runs against this database, tool definitions appear here for template authors.
+          <div className="text-center py-16 px-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 mb-5">
+              <Layers className="w-7 h-7" />
+            </div>
+            <p className="text-slate-800 font-semibold text-lg">No adapter tools registered</p>
+            <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto leading-relaxed">
+              When the adapter service is connected to this database, tool definitions appear here for template authors.
             </p>
           </div>
         )}
 
         {!isLoading && !isError && adapters && adapters.length > 0 && (
           <>
-            <div
-              className="sticky top-0 z-10 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 mb-8 border-b border-slate-200/90 bg-slate-50/95 backdrop-blur-md supports-[backdrop-filter]:bg-slate-50/80"
-              aria-label="Find adapters and tools"
-            >
-              <div className="w-full min-w-0 flex flex-col gap-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
-                  <div className="relative min-w-0 flex-1">
-                    <Search
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
-                      aria-hidden
-                    />
-                    <input
-                      id="adapter-tools-search"
-                      type="search"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search adapters and tools…"
-                      autoComplete="off"
-                      aria-controls="adapter-tools-sections"
-                      aria-describedby="adapter-tools-search-hint"
-                      className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5 shrink-0 sm:w-48">
-                    <label
-                      htmlFor="adapter-sort"
-                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400"
-                    >
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" aria-hidden />
-                      Sort
-                    </label>
-                    <select
-                      id="adapter-sort"
-                      value={adapterSort}
-                      onChange={(e) => setAdapterSort(e.target.value as AdapterSort)}
-                      className="w-full rounded-xl border border-slate-200/90 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-800 shadow-sm cursor-pointer appearance-none bg-[length:1rem] bg-[right_0.65rem_center] bg-no-repeat focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 hover:border-slate-300/90"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                      }}
-                    >
-                      {ADAPTER_SORT_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+            <div className="mb-8 rounded-xl border border-slate-200 bg-white shadow-sm p-4 sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-5">
+                <div className="relative min-w-0 flex-1">
+                  <Search
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+                    aria-hidden
+                  />
+                  <input
+                    id="adapter-tools-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by adapter, tool name, MCP id, or parameter…"
+                    autoComplete="off"
+                    aria-controls="adapter-tools-sections"
+                    aria-describedby="adapter-tools-search-hint"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 focus:bg-white"
+                  />
                 </div>
-                <p id="adapter-tools-search-hint" className="text-xs text-slate-500">
-                  Filter by adapter name or any tool name, identifier, or parameter.
-                </p>
+                <div className="flex flex-col gap-1.5 shrink-0 w-full sm:w-52 lg:w-56">
+                  <label
+                    htmlFor="adapter-sort"
+                    className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                  >
+                    <ArrowUpDown className="w-3.5 h-3.5" aria-hidden />
+                    Sort
+                  </label>
+                  <select
+                    id="adapter-sort"
+                    value={adapterSort}
+                    onChange={(e) => setAdapterSort(e.target.value as AdapterSort)}
+                    className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-800 shadow-sm cursor-pointer appearance-none bg-[length:1rem] bg-[right_0.65rem_center] bg-no-repeat focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 hover:border-slate-300"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+                    }}
+                  >
+                    {ADAPTER_SORT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+              <p id="adapter-tools-search-hint" className="text-xs text-slate-500 mt-3">
+                Filter the list without leaving the page. Table of contents updates with visible adapters.
+              </p>
             </div>
 
             {noSearchResults ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center">
-                <p className="text-slate-700 font-medium">No matching adapters or tools</p>
+              <div className="rounded-xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center shadow-sm">
+                <p className="text-slate-800 font-semibold">No matching adapters or tools</p>
                 <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">
-                  Try a different search, or clear the field to see everything again.
+                  Try another term, or clear the search to see the full catalog.
                 </p>
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="mt-5 text-sm font-bold text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+                  className="mt-6 text-sm font-bold text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded px-1"
                 >
                   Clear search
                 </button>
               </div>
             ) : (
-              <div className="flex gap-8 items-start">
-                <div id="adapter-tools-sections" className="min-w-0 flex-1 space-y-14">
+              <div className="flex gap-8 lg:gap-10 items-start">
+                <div id="adapter-tools-sections" className="min-w-0 flex-1 space-y-16">
                   {displayAdapters.map((adapter: Adapter) => {
                     const sectionId = slugForAdapter(adapter.adapter_name)
                     const latest = maxUpdatedAt(adapter.tools)
@@ -365,24 +390,24 @@ export const Adapters = () => {
                       <section
                         key={adapter.adapter_name}
                         id={sectionId}
-                        className="scroll-mt-36 min-w-0"
+                        className="scroll-mt-28 min-w-0"
                       >
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4 mb-6 pb-4 border-b border-slate-200">
-                          <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                            <h2 className="text-2xl font-extrabold text-slate-900 break-words">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6">
+                          <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+                            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight break-words">
                               {adapter.adapter_name}
                             </h2>
-                            <span className="text-sm text-slate-500 tabular-nums">
+                            <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-600 px-2.5 py-0.5 text-xs font-bold tabular-nums">
                               {adapter.tool_count} tool{adapter.tool_count === 1 ? '' : 's'}
                             </span>
                           </div>
                           {latest && (
-                            <span className="text-xs text-slate-400 font-mono shrink-0 sm:text-right">
-                              updated {latest}
+                            <span className="text-xs text-slate-400 font-mono shrink-0">
+                              Updated {latest}
                             </span>
                           )}
                         </div>
-                        <div className="grid min-w-0 w-full grid-cols-1 xl:grid-cols-2 gap-6">
+                        <div className="grid min-w-0 w-full grid-cols-1 xl:grid-cols-2 gap-5">
                           {adapter.tools.map((tool) => (
                             <ToolCard key={`${adapter.adapter_name}-${tool.tool_name}`} tool={tool} />
                           ))}
