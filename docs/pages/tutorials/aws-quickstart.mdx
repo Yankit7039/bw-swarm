@@ -30,11 +30,11 @@ Edit the tfvars file for your environment:
 
 Set at minimum:
 
-- **`openrouter_api_key`** — LLM access for **swarm-core** pods
-- **`agentmail_api_key`**, **`agentmail_inbox_id`** — real AgentMail sends (optional; adapter mocks if unset)
-- **`jira_email`**, **`jira_api_token`**, **`jira_base`** — Jira MCP tools for ticket workflows (optional)
-- **`jira_webhook_secret`** — verifies **`POST /webhooks/jira`** on **runtime** (Bearer or HMAC)
-- **`agentmail_webhook_secret`** — Svix signing secret for **`POST /webhooks/agentmail`**
+- **`openrouter_api_key`:** LLM access for **swarm-core** pods
+- **`agentmail_api_key`**, **`agentmail_inbox_id`:** real AgentMail sends (optional; adapter mocks if unset)
+- **`jira_email`**, **`jira_api_token`**, **`jira_base`:** Jira MCP tools for ticket workflows (optional)
+- **`jira_webhook_secret`:** verifies **`POST /webhooks/jira`** on **runtime** (Bearer or HMAC)
+- **`agentmail_webhook_secret`:** Svix signing secret for **`POST /webhooks/agentmail`**
 
 Do **not** commit real secrets. Use local edits or your secrets manager.
 
@@ -54,7 +54,7 @@ make deploy ENV=prod
 
 The Makefile roughly:
 
-1. **`terraform apply`** in **`infra/terraform/prod`** (workspace **dev** or **default** prod) — **VPC**, **ECR**, **EKS** 1.31, **RDS**, **Secrets Manager**, **External Secrets**, load balancer controller (as defined in Terraform)
+1. **`terraform apply`** in **`infra/terraform/prod`** (workspace **dev** or **default** prod): **VPC**, **ECR**, **EKS** 1.31, **RDS**, **Secrets Manager**, **External Secrets**, load balancer controller (as defined in Terraform)
 2. **`aws eks update-kubeconfig`**
 3. **ECR login** and **docker build/push** for: **`swarm-core`**, **`swarm-runtime`**, **`swarm-adapter`**, **`swarm-admin-api`**
 4. **`kubectl apply`** of ordered manifests: **`infra/k8s-aws/runtime-rbac.yaml`**, **`cluster-secret-store.yaml`**, **`external-secret.yaml`**, adapter/runtime/admin-api deployments, **`warmpool-swarm-core.yaml`**
@@ -111,7 +111,7 @@ Expect roughly **12–15+ minutes**; ALB teardown can take longer.
 
 ## Further reading
 
-- [Deployment](/guides/deployment) — Infra map and Compose vs EKS
-- [Kind cluster quickstart](/tutorials/kind-quickstart) — local parity
+- [Deployment](/guides/deployment): Infra map and Compose vs EKS
+- [Kind cluster quickstart](/tutorials/kind-quickstart): local parity
 - [Environment variables](/reference/environment-variables)
-- Root **`AWS_QUICKSTART.md`** — condensed table and debug commands
+- Root **`AWS_QUICKSTART.md`:** condensed table and debug commands

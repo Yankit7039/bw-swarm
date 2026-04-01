@@ -1,0 +1,97 @@
+---
+title: SWARM
+description: Agent orchestration for telecom enterprises, YAML workflows, integrations, and observability in one platform.
+---
+
+# SWARM
+
+**SWARM** is an agent orchestration platform built for telecom and network operations. Teams describe automations in **workflow YAML**, trigger them over **HTTP** or **webhooks**, and watch every step in a single **Admin Console**, without standing up a new integration stack for every use case.
+
+Whether you are evaluating SWARM for your organization, rolling it out in production, or authoring the next automation, the same documentation applies: **what each part does**, **why it exists**, and **how it fits together**.
+
+---
+
+## What SWARM solves
+
+Enterprises run complex, ticket-driven work: stuck orders, number porting, eSIM, network triage, and customer comms across many systems. SWARM gives you:
+
+- **One place to run:** A consistent path from trigger to completion, with status and history you can trust.
+- **Declarative workflows:** Automations are defined as YAML, versioned and reviewed like any other critical config.
+- **Shared integrations:** External systems are reached through a **tool gateway** so workflows stay portable and readable.
+- **Visibility:** Operators see runs, events, and tooling in the console; APIs expose the same picture for dashboards and audits.
+
+SWARM is opinionated about **clarity** and **repeatability**: the platform handles orchestration and handoffs so your teams focus on the business logic in the workflow.
+
+---
+
+## Who this site is for
+
+| Audience | What you will find |
+|----------|-------------------|
+| **Executives & stakeholders** | Plain-language [Platform overview](/concepts/architecture), [Glossary](/concepts/glossary), and the pages below. No prior SWARM knowledge required. |
+| **Operators & SRE** | [Deployment](/guides/deployment), [Kind](/tutorials/kind-quickstart) and [AWS](/tutorials/aws-quickstart) tutorials, [Services](/reference/services), [Environment variables](/reference/environment-variables). |
+| **Integrators & workflow authors** | [Workflow YAML](/guides/workflow-yaml), [Templates](/guides/templates), [Adapters](/guides/adapters), [Templates catalog](/guides/templates-catalog). |
+| **Engineers** | [Platform components](#explore-the-platform), [Data flow](/concepts/data-flow), [Repository layout](/concepts/repo-layout), API [Runtime](/reference/runtime-api) and [Admin](/reference/admin-api) reference. |
+
+---
+
+## Explore the platform
+
+Each major component has a dedicated page: **what it is**, **what problem it solves**, and **where it sits** in the bigger picture.
+
+<CardGroup cols={2}>
+  <Card title="Platform overview" icon="compass" href="/concepts/architecture">
+    How SWARM layers data, orchestration, execution, integrations, and operations.
+  </Card>
+  <Card title="Runtime" icon="terminal" href="/concepts/runtime">
+    Run creation, webhooks, background work, and coordination with execution.
+  </Card>
+  <Card title="Workflow engine" icon="cpu" href="/concepts/workflow-engine">
+    The shared engine that runs your YAML inside execution capacity.
+  </Card>
+  <Card title="Warm pool" icon="zap" href="/concepts/warm-pool">
+    Ready execution capacity so runs start quickly at scale.
+  </Card>
+  <Card title="Run queue" icon="layers" href="/concepts/redis-queue">
+    Reliable handoff when triggers must return fast and work continues in the background.
+  </Card>
+  <Card title="Adapter service" icon="grid" href="/guides/adapters">
+    The integration gateway: one surface for tools and enterprise systems.
+  </Card>
+  <Card title="Templates" icon="book" href="/guides/templates">
+    Packaged automations and how they are registered and evolved.
+  </Card>
+  <Card title="Admin API" icon="map" href="/concepts/admin-api">
+    The operator and integration API behind consoles and automation.
+  </Card>
+  <Card title="Admin Console" icon="search" href="/concepts/admin-console">
+    The web UI for templates, runs, adapters, and workflow editing.
+  </Card>
+</CardGroup>
+
+---
+
+## Documentation map
+
+### [Platform](/concepts/architecture)
+
+Component and capability pages: architecture, runtime, workflow engine, warm pool, run queue, adapters, templates, Admin API, Admin Console.
+
+### [How it works](/concepts/data-flow)
+
+Deeper flows: [Data flow](/concepts/data-flow), [Follow-up lifecycle](/concepts/follow-up-lifecycle), [Event system](/concepts/event-system), [Repository layout](/concepts/repo-layout), [Glossary](/concepts/glossary).
+
+### [Tutorials](/tutorials/local-dev)
+
+[Local development](/tutorials/local-dev) · [Kind quickstart](/tutorials/kind-quickstart) · [AWS quickstart](/tutorials/aws-quickstart)
+
+### [Build](/guides/workflow-yaml)
+
+[Workflow YAML](/guides/workflow-yaml) · [Templates catalog](/guides/templates-catalog) · [Deployment](/guides/deployment)
+
+### [Reference](/reference/runtime-api)
+
+[Runtime API](/reference/runtime-api) · [Admin API](/reference/admin-api) · [Services](/reference/services) · [Environment variables](/reference/environment-variables)
+
+---
+

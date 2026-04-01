@@ -1,0 +1,76 @@
+---
+title: Templates
+description: "SWARM templates: packaged automations, registration, editing, and how they connect to execution."
+---
+
+# Templates
+
+A **template** is a **packaged automation**: one **scenario** (for example, **ticket routing**, **eSIM**, **number porting**) with a **workflow definition**, **metadata**, and **operational** pointers (such as which **warm pool** to use). Templates are how SWARM **organizes** work so **operators** and **authors** know **what can run** and **how it is configured**.
+
+---
+
+## What problem templates solve
+
+Without templates, every run would be an **ad hoc** script. Templates give you:
+
+- **Identity:** A stable **template id** used in **APIs** and **dashboards**.
+- **Reusability:** The same **workflow engine** runs **many** templates; **YAML** defines **behavior**.
+- **Governance:** **Change** templates through **reviewed** processes (Admin Console, GitOps, or pipelines) instead of one-off edits in production.
+
+---
+
+## What a template includes
+
+| Aspect | Typical content |
+|--------|------------------|
+| **Purpose** | Human-readable **name** and **description** so stakeholders find the right automation. |
+| **Workflow** | **Workflow YAML:** stages, steps, optional **follow-up** and **email** behavior. |
+| **Execution** | Which **warm pool** (shared **execution capacity**) this template uses. Usually **one** pool for **many** templates; see [Warm pool](/concepts/warm-pool). |
+| **Packaging** (optional) | A **container image** build for **air-gapped** or **custom** policies, often based on the **shared workflow engine** image. |
+
+In many deployments, **authoritative workflow YAML** lives in the **platform configuration** so operators can **edit** without rebuilding images for every change.
+
+---
+
+## How templates register
+
+Templates are **registered** in the **system of record.** **Metadata** and **workflow YAML** are stored so the **Runtime** can resolve **template id** and the **workflow engine** can load the **right document** per run.
+
+**Seeding** or **migration** may load initial YAML from **repository packages**; **ongoing** edits often happen via **Admin Console** or **API** as your **release process** allows.
+
+---
+
+## How the Runtime uses a template
+
+When a client or webhook starts a run:
+
+1. **Runtime** looks up the template by **id**.
+2. It reads **warm pool** (and other) **config** needed to **assign execution**.
+3. It hands **run id** and **payload** to the **workflow engine**, which loads **workflow YAML** for that template.
+
+The Runtime **does not** embed **business rules** per template. It **routes** and **schedules**; **YAML** defines **logic**.
+
+---
+
+## Editing workflow YAML
+
+**Authorized** users can update **workflow YAML** from the **Admin Console** (template detail → edit → save) or via **Admin API**. See [Admin API](/concepts/admin-api). Changes are **subject to your** **change management** and **testing** practices.
+
+For **schema** details, see [Workflow YAML](/guides/workflow-yaml).
+
+---
+
+## Catalog
+
+Built-in **example** packages are listed in the [templates catalog](/guides/templates-catalog) with README links for **use cases** and **getting started**.
+
+---
+
+## Further reading
+
+- [Workflow engine](/concepts/workflow-engine)
+- [Platform overview](/concepts/architecture)
+- [Admin Console](/concepts/admin-console)
+- [Adapter service](/guides/adapters)
+- [Workflow YAML](/guides/workflow-yaml)
+- [Admin API reference](/reference/admin-api)

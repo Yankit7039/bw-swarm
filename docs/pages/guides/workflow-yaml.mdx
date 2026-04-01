@@ -1,6 +1,6 @@
 ---
 title: Workflow YAML
-description: Schema for SWARM workflow YAML validated by swarm_core.schema — stages, steps, and follow_up.
+description: "Schema for SWARM workflow YAML validated by swarm_core.schema: stages, steps, and follow_up."
 ---
 
 # Workflow YAML
@@ -16,12 +16,12 @@ Workflow documents are **YAML** files validated at pod startup by **`WorkflowSch
 | **`description`** | string | Human-readable summary |
 | **`model`** | string | Default model id (e.g. OpenRouter id); may be overridden by env |
 | **`input`** | object | **`required`**: list of payload keys the workflow expects |
-| **`adapters`** | list of strings | Declarative list of integration areas (Jira, AgentMail, …) — documentation / convention |
+| **`adapters`** | list of strings | Declarative list of integration areas (Jira, AgentMail, …); documentation / convention |
 | **`tool_labels`** | map | Display labels for MCP tools in **`run_events`** |
 | **`result_keys`** | list | Keys the workflow may write into final **result** / state |
 | **`follow_up`** | object | See [Follow-up](#follow_up-block) |
 | **`escalation_matrix`** | map | Optional structured data for escalation tooling |
-| **`stages`** | list | **Required**, non-empty — see [Stages](#stages) |
+| **`stages`** | list | **Required**, non-empty. See [Stages](#stages) |
 
 ## Stages
 
@@ -29,14 +29,14 @@ Each stage is a mapping with **`type`**:
 
 | `type` | Purpose |
 |--------|---------|
-| **`deterministic`** | Ordered **`steps`** — no LLM unless a step is **`llm_agent`** |
+| **`deterministic`** | Ordered **`steps`**, no LLM unless a step is **`llm_agent`** |
 | **`hybrid`** | Same as deterministic (default **`type`** if omitted) |
 | **`poll_loop`** | Repeated polling with **`poll_steps`**, **`interval_seconds`**, **`max_iterations`**, **`exit_if`**, and optional **`escalation_ladder`** |
 
 Common stage fields:
 
-- **`name`** — Identifier for logs and skipping
-- **`skip_if`** — Expression string evaluated against session context (e.g. **`"is_followup or is_reply"`**)
+- **`name`:** Identifier for logs and skipping
+- **`skip_if`:** Expression string evaluated against session context (e.g. **`"is_followup or is_reply"`**)
 
 ### `poll_loop`
 
@@ -79,7 +79,7 @@ Each step under **`stages[].steps`** (or inside **`poll_loop`**) has **`type`**:
 
 | Field | Meaning |
 |-------|---------|
-| **`branches`** | List of **`if`** / **`else`** / **`set`** — see schema **`ConditionBranch`** |
+| **`branches`** | List of **`if`** / **`else`** / **`set`**. See schema **`ConditionBranch`** |
 
 ## `follow_up` block
 
@@ -90,7 +90,7 @@ Each step under **`stages[].steps`** (or inside **`poll_loop`**) has **`type`**:
 | **`interval_seconds`** | int | Delay before next follow-up timer |
 | **`email_result_key`** | string | Which result key holds outbound email metadata |
 
-Runtime **follow-up scheduling** uses DB columns (**`followup_due_at`**, **`state`**) — see [Follow-up lifecycle](/concepts/follow-up-lifecycle).
+Runtime **follow-up scheduling** uses DB columns (**`followup_due_at`**, **`state`**). See [Follow-up lifecycle](/concepts/follow-up-lifecycle).
 
 ## Annotated excerpt
 

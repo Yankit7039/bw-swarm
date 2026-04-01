@@ -1,0 +1,73 @@
+---
+title: Data flow
+description: How runs move through the Runtime, system of record, warm pool, workflow engine, and follow-ups.
+---
+
+# Data flow
+
+## Control plane overview
+
+![SWARM architecture: clients, runtime, admin services, data store, warm pool workers, and adapter](/df1.png)
+
+## Run lifecycle (initial trigger)
+
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant R as Runtime
+  participant D as System_of_record
+  participant S as Worker_pod
+
+  C->>R: POST /runs template_id + payload
+  R->>D: Create run, load template
+  Note over R,D: Optional webhook events
+  R->>S: Claim + start run
+  S->>D: Events workflow_* / tool_* / llm_*
+  S->>D: Update status, result, state
+  C->>R: GET /runs/run_id/events
+  R->>D: Read ordered events
+```
+
+## Warm pool claim flow
+
+The Runtime does **not** start a **one-off** pod per execution. It creates a **SandboxClaim** that binds a **pre-warmed** worker from the **warm pool** (see [Warm pool](/concepts/warm-pool)). When the worker is ready, the Runtime **POST**s **`run_id`** and **payload** to the worker’s HTTP entrypoint.
+
+```mermaid
+sequenceDiagram
+  participant R as Runtime
+  participant K as Kubernetes_agent_sandbox
+  participant D as System_of_record
+  participant W as Workflow_worker
+
+  R->>K: Create SandboxClaim
+  K->>W: Assign claim to warm worker
+  R->>D: Record assignment
+  R->>W: POST /run (run_id, payload)
+  W->>D: Workflow lifecycle events
+  W->>D: Update status / result
+```
+
+## Follow-up and inbound reply flow
+
+When **follow-up** is configured for **email** in workflow YAML, the worker may set **waiting for follow-up** and a **due time**. The **Runtime** **follow-up** loop picks up **due** runs, records **follow-up started**, and **re-invokes** the worker with **follow-up context**. **Inbound email** webhooks can deliver **engineer replies**; a **reply** path **merges** context and **triggers** execution again. See [Follow-up lifecycle](/concepts/follow-up-lifecycle).
+
+```mermaid
+sequenceDiagram
+  participant W as Workflow_worker
+  participant D as System_of_record
+  participant RT as Runtime
+  participant AM as Email_webhook
+
+  W->>D: Status waiting_for_followup, due time, state
+  W->>D: Event followup_scheduled
+  RT->>D: Claim due run for follow-up
+  RT->>D: Event followup_started
+  RT->>W: POST /run (run_id, payload + followup_context)
+  AM->>RT: Inbound message
+  RT->>D: Event inbound (when reply claimed)
+  RT->>W: POST /run (merged reply_context)
+```
+
+## Templates and configuration
+
+Each **template** has an identifier, optional **container image** metadata, a **warm pool** reference, **workflow YAML**, and **configuration** the Runtime uses to route execution. See [Templates](/guides/templates).

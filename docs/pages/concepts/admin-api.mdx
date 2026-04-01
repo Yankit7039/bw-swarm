@@ -1,0 +1,62 @@
+---
+title: Admin API
+description: "The SWARM Admin API: operator and integration surface for templates, runs, events, adapters, and enqueue."
+---
+
+# Admin API
+
+The **Admin API** is SWARM’s **operator and integration API**. It exposes the **system of record** for **templates**, **runs**, **event history**, and **adapter discovery**, the same facts the **Admin Console** presents, but in a form **programs** and **pipelines** can consume.
+
+---
+
+## What problem it solves
+
+Teams need to **automate platform tasks** and **embed SWARM** into existing tooling:
+
+- **CI/CD** and **GitOps** can update template content when YAML changes are approved.
+- **Dashboards** and **ticketing** can pull run status and events.
+- **Internal portals** can enqueue work or list what integrations exist **without** bespoke database access.
+
+The Admin API provides **stable, HTTP-based** access to these operations while **execution ingress** remains on the **Runtime**. See [Runtime](/concepts/runtime).
+
+---
+
+## What it is (and is not)
+
+| The Admin API **is** | The Admin API **is not** |
+|----------------------|---------------------------|
+| The API for **managing** templates and **reading** run data exposed to operators | A substitute for **Runtime** **ingress** (starting runs via the primary run API is a Runtime concern) |
+| A way to **list events** and **investigate** runs | The component that **executes** workflow YAML inside pods |
+| A catalog of **adapters/tools** for authoring and operations | The **Adapter service** itself (that is the integration gateway; see [Adapter service](/guides/adapters)) |
+
+**Summary:** Admin API = **control and visibility**. Runtime = **triggers and execution coordination**. Workflow engine + Adapter = **doing the work**.
+
+---
+
+## Typical uses
+
+| Use case | Why teams care |
+|----------|----------------|
+| **Template lifecycle** | Create and update **workflow YAML** and metadata as your **release process** allows. |
+| **Run operations** | List runs, fetch details, and stream or page **events** for support and auditing. |
+| **Enqueue** | Hand work to the platform when you want **durable background processing** after a run row exists. Pairs with platform configuration described under [Run queue](/concepts/redis-queue). |
+| **Adapter discovery** | Discover **tool names** and shapes for **workflow authoring** and **governance**. |
+
+---
+
+## How it fits with the Runtime API
+
+- **Runtime API:** tuned for **clients and webhooks** that **create** runs and **receive** callbacks relevant to execution.
+- **Admin API:** tuned for **operators** and **internal systems** that **manage** templates and **inspect** platform state.
+
+Both align to the **same** underlying data so consoles, scripts, and runbooks never disagree on “what is true.”
+
+---
+
+## Further reading
+
+- [Admin Console](/concepts/admin-console)
+- [Platform overview](/concepts/architecture)
+- [Runtime](/concepts/runtime)
+- [Admin API reference](/reference/admin-api)
+- [Services](/reference/services)

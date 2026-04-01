@@ -1,0 +1,71 @@
+---
+title: Admin Console
+description: "The SWARM Admin Console: operator workflows for templates, runs, adapters, and workflow editing."
+---
+
+# Admin Console
+
+The **Admin Console** is SWARM’s **web-based control plane**. It is how operators and authors **see** what is configured, **watch** runs progress, and **change** workflow YAML, without relying on ad-hoc scripts or direct database access.
+
+---
+
+## What problem it solves
+
+Running a platform in production requires **visibility** and **safe change**. The Admin Console provides:
+
+- **A single place to browse** templates and understand what each automation is for.
+- **Run investigation:** status, timeline of events, and views that help answer “what happened?” quickly.
+- **Workflow editing** for authorized users: iterate on YAML with guardrails appropriate to your process.
+- **Adapter awareness:** see what **tool families** exist so authors know what they can call from workflows.
+
+It complements **APIs**: humans use the console; **integrations and automation** use the [Admin API](/concepts/admin-api).
+
+---
+
+## What you can do (by area)
+
+### Home and navigation
+
+The console is organized around **templates**, **runs**, and **platform utilities**, so you move from “what can run” to “what is running” without context switching across unrelated tools.
+
+### Templates
+
+- **List** templates with enough context to pick the right automation.
+- **Open a template** to read metadata, see or edit **workflow YAML**, and understand how the template is intended to be used.
+
+Templates connect to the same **source of truth** the Runtime uses when starting runs. See [Templates](/guides/templates).
+
+### Runs
+
+- **Browse** runs and **open** a run to inspect **status**, **payload context** (as exposed), and a **chronological event stream**.
+- **Visualizations** (where enabled) help follow branching and tool usage at a glance.
+
+Runs reflect data written by the **workflow engine** and **orchestration**. See [Event system](/concepts/event-system) and [Data flow](/concepts/data-flow).
+
+### Adapters
+
+- **Discover** available **integration areas** and tools exposed to workflows.
+- Use this when **authoring YAML** so `mcp_call` steps and **model tool allowlists** match what the platform actually offers.
+
+See [Adapter service](/guides/adapters).
+
+### Other pages
+
+Depending on your deployment, you may also see **bulk or mesh views**, **test runs**, **agent listings**, or **log-oriented** pages, all aimed at operators who need a **bigger picture** than a single run detail screen.
+
+---
+
+## How it connects
+
+The Admin Console talks to the **Admin API** (configure your deployment’s base URL in the console’s environment). It does **not** replace the **Runtime API** for **ingress**. Clients and webhooks still target the Runtime for **starting** and **continuing** work as documented in [Runtime API](/reference/runtime-api).
+
+---
+
+## Further reading
+
+- [Admin API](/concepts/admin-api)
+- [Platform overview](/concepts/architecture)
+- [Templates](/guides/templates)
+- [Workflow YAML](/guides/workflow-yaml)
+- [Admin API reference](/reference/admin-api)
+- [Services](/reference/services)

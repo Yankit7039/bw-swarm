@@ -7,13 +7,15 @@ description: HTTP endpoints exposed by the runtime orchestrator service.
 
 FastAPI service under **`runtime/`**. Uses **`DATABASE_URL`** for **`runs`** and **`run_events`**.
 
-**Listing runs** is not implemented on the runtime service — use **Admin API** **`GET /runs/`** for paginated lists.
+<Callout type="info" title="Listing runs">
+  **Listing runs** is not implemented on the runtime service. Use **Admin API** **`GET /runs/`** for paginated lists.
+</Callout>
 
 ## Runs
 
 | Method | Path | Description |
 |--------|------|-------------|
-| **POST** | **`/runs`** | Create a run. Body: **`{ "template_id": string, "payload": object }`**. Returns **`run_id`**, **`template_id`**, **`status": "pending"`**. Schedules sandbox trigger in the background on the runtime (**not** via the Redis queue path). Certain **webhooks** and **Admin API** **`/runs/enqueue`** use [Redis run queue](/concepts/redis-queue) instead. |
+| **POST** | **`/runs`** | Create a run. Body: **`{ "template_id": string, "payload": object }`**. Returns **`run_id`**, **`template_id`**, **`status": "pending"`**. Schedules sandbox trigger in the background on the runtime (**not** via the Redis queue path). Certain **webhooks** and **Admin API** **`/runs/enqueue`** use the [Run queue](/concepts/redis-queue) instead. |
 | **GET** | **`/runs/{run_id}`** | Single run row: status, result, error, timestamps, payload, etc. |
 | **GET** | **`/runs/{run_id}/events`** | Ordered **`run_events`** for the run (UI / debugging). |
 
@@ -30,8 +32,8 @@ If **`JIRA_WEBHOOK_SECRET`** is unset, requests are rejected (**401**).
 
 Otherwise the raw body is authenticated using **one** of:
 
-- **`X-Hub-Signature: sha256=<hex>`** — HMAC-SHA256 of the body with the secret (Atlassian / WebSub style)
-- **`Authorization: Bearer <secret>`** — same secret (useful for manual testing)
+- **`X-Hub-Signature: sha256=<hex>`:** HMAC-SHA256 of the body with the secret (Atlassian / WebSub style)
+- **`Authorization: Bearer <secret>`:** same secret (useful for manual testing)
 
 ### AgentMail webhook authentication
 
@@ -49,6 +51,6 @@ When the service is run with default FastAPI settings, interactive docs may be a
 
 ## Further reading
 
-- [Redis run queue](/concepts/redis-queue) — when webhooks and Admin enqueue use Redis
-- [Admin API](/reference/admin-api) — template webhooks that forward to **`POST /runs`**
+- [Run queue](/concepts/redis-queue) when webhooks and Admin enqueue use the durable handoff path
+- [Admin API](/reference/admin-api) for template webhooks that forward to **`POST /runs`**
 - [Event system](/concepts/event-system)

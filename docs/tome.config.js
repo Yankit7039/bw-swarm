@@ -17,12 +17,23 @@ export default {
       pages: ["index"],
     },
     {
-      group: "Concepts",
+      group: "Platform",
       pages: [
         "concepts/architecture",
-        "concepts/data-flow",
-        "concepts/redis-queue",
+        "concepts/runtime",
+        "concepts/workflow-engine",
         "concepts/warm-pool",
+        "concepts/redis-queue",
+        "guides/adapters",
+        "guides/templates",
+        "concepts/admin-api",
+        "concepts/admin-console",
+      ],
+    },
+    {
+      group: "How it works",
+      pages: [
+        "concepts/data-flow",
         "concepts/follow-up-lifecycle",
         "concepts/event-system",
         "concepts/repo-layout",
@@ -38,11 +49,9 @@ export default {
       ],
     },
     {
-      group: "Guides",
+      group: "Build",
       pages: [
         "guides/workflow-yaml",
-        "guides/adapters",
-        "guides/templates",
         "guides/templates-catalog",
         "guides/deployment",
       ],

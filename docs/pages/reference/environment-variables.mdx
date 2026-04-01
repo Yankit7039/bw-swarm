@@ -12,15 +12,15 @@ Values are often injected from Kubernetes **`adk-secrets`** (keys use **hyphens*
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | **`DATABASE_URL`** | yes* | `postgresql+asyncpg://swarm:swarm@localhost:5432/swarm` | Async Postgres URL |
-| **`REDIS_URL`** | no† | — | If set, enables the **Redis run queue** worker for webhook/enqueue handoff (see [Redis run queue](/concepts/redis-queue)) |
+| **`REDIS_URL`** | no† | none | If set, enables the **run queue** worker for webhook/enqueue handoff (see [Run queue](/concepts/redis-queue)) |
 | **`SANDBOX_NAMESPACE`** | no | `default` | Namespace for SandboxClaim |
 | **`ENTRYPOINT_PORT`** | no | `8888` | Target port on swarm-core pods |
 | **`SANDBOX_POST_TIMEOUT`** | no | `60` | Seconds for HTTP POST to pod |
 | **`FOLLOWUP_POLLER_INTERVAL_SEC`** | no | `5` | Follow-up poller interval |
 | **`PENDING_REPLY_WORKER_INTERVAL_SEC`** | no | `5` | Pending reply worker interval |
 | **`CLAIM_RECONCILER_INTERVAL_SEC`** | no | `5` | Claim reconciler interval |
-| **`JIRA_WEBHOOK_SECRET`** | for Jira webhooks | — | Shared secret for **`POST /webhooks/jira`** |
-| **`AGENTMAIL_WEBHOOK_SECRET`** | for AgentMail webhooks | — | Svix **`whsec_...`** secret |
+| **`JIRA_WEBHOOK_SECRET`** | for Jira webhooks | none | Shared secret for **`POST /webhooks/jira`** |
+| **`AGENTMAIL_WEBHOOK_SECRET`** | for AgentMail webhooks | none | Svix **`whsec_...`** secret |
 
 \*Strongly required in production; default only for local dev.
 
@@ -32,9 +32,9 @@ Values are often injected from Kubernetes **`adk-secrets`** (keys use **hyphens*
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| **`DATABASE_URL`** | yes | — | Same Postgres as runtime |
+| **`DATABASE_URL`** | yes | none | Same Postgres as runtime |
 | **`RUNTIME_URL`** | yes in cluster | `http://runtime:8000` | Forward webhooks to **`POST /runs`** |
-| **`REDIS_URL`** | for **`POST /runs/enqueue`** | `redis://localhost:6379` | Redis URL for enqueue (see [Redis run queue](/concepts/redis-queue)) |
+| **`REDIS_URL`** | for **`POST /runs/enqueue`** | `redis://localhost:6379` | Redis URL for enqueue (see [Run queue](/concepts/redis-queue)) |
 
 ## Admin Console (Vite)
 
@@ -58,14 +58,14 @@ Set in **`admin-console/.env`** for local dev.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| **`DATABASE_URL`** | yes | — | Load **`workflow_yaml`** by **`run_id`** when file missing |
-| **`OPENROUTER_API_KEY`** | yes | — | LLM calls |
+| **`DATABASE_URL`** | yes | none | Load **`workflow_yaml`** by **`run_id`** when file missing |
+| **`OPENROUTER_API_KEY`** | yes | none | LLM calls |
 | **`OPENROUTER_API_BASE`** | no | `https://openrouter.ai/api/v1` | API base URL |
 | **`OPENROUTER_MODEL`** | no | package default | Model id |
 | **`ADAPTER_URL`** | no | `http://adapter:8080` | MCP base (**`/mcp`** appended in code) |
 | **`YAML_PATH`** | no | `/app/workflow.yaml` | On-disk workflow; if absent, DB YAML used |
 | **`ENTRYPOINT_PORT`** | no | `8888` | Uvicorn listen port |
-| **`SWARM_HYBRID_DEBUG_MCP`** | no | — | Set to enable extra MCP debug logs |
+| **`SWARM_HYBRID_DEBUG_MCP`** | no | none | Set to enable extra MCP debug logs |
 
 ## Terraform / secrets mapping (typical)
 

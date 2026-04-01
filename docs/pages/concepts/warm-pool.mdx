@@ -1,0 +1,64 @@
+---
+title: Warm pool
+description: "Ready execution capacity for SWARM: fast starts, predictable operations, and shared pools for many templates."
+---
+
+# Warm pool
+
+The **warm pool** is **pre-provisioned execution capacity**: running workers that stay **ready** so a new run does not pay the full cost of **cold start** every time. When the **Runtime** starts work, it **claims** a slot from the pool and hands the run **payload** to the **workflow engine** on that worker.
+
+---
+
+## What problem it solves
+
+**Latency** and **predictability** matter for operator-facing and customer-facing automations. Starting a fresh container from zero on every request adds **seconds** (or more) and **variance**. The warm pool keeps a **buffer** of idle workers so SWARM can:
+
+- **Respond quickly** when triggers arrive.
+- **Operate at scale** with a **known** footprint (replica counts you control).
+- **Reuse** the same **workflow engine** image across **many templates**; configuration and YAML change per run, not the base execution image.
+
+---
+
+## What it is (in plain terms)
+
+Your cluster exposes **pool** and **claim** concepts (via the **agent-sandbox** family of resources):
+
+- A **template** for what each worker pod looks like: image, health checks, and environment needed to run workflows.
+- A **pool** that says **how many** idle workers to keep **warm**.
+- A **claim** per run that **binds** one warm worker to that run until the work is done or the run reaches a **terminal** state.
+
+In typical deployments, **many templates share one pool** named in a **stable** way. **Workflow YAML** is loaded **per run** from configuration, so you do not need a **different** pool image for every automation unless your policy requires it.
+
+---
+
+## What operators control
+
+| Control | Why it matters |
+|---------|----------------|
+| **Pool size** | How much **idle** capacity you keep. Trade off **cost** vs **burst** readiness. |
+| **Worker image** | The **workflow engine** and **runtime dependencies** for execution, usually **one** shared image for the fleet. |
+| **Secrets & endpoints** | Workers need **database** access, **model** credentials, and the **Adapter** URL, same as any production service. |
+
+Manifests and cloud-specific packaging live in your **infrastructure** repo paths; follow your [Deployment](/guides/deployment) guide for your environment.
+
+---
+
+## How a run uses the pool
+
+1. **Runtime** resolves the template and chooses the **pool** referenced by that template.
+2. It creates a **claim** that **assigns** a warm pod to the run.
+3. It sends **`run_id`** and **payload** to the worker’s HTTP entrypoint.
+4. The **workflow engine** runs **workflow YAML** and writes **progress** and **results** back to the **system of record**.
+
+When a run finishes or reaches a **terminal** state that no longer needs the claim, **cleanup** removes stale claims so **capacity** returns to the pool predictably.
+
+---
+
+## Further reading
+
+- [Platform overview](/concepts/architecture)
+- [Workflow engine](/concepts/workflow-engine)
+- [Runtime](/concepts/runtime)
+- [Data flow](/concepts/data-flow)
+- [Templates](/guides/templates)
+- [Deployment](/guides/deployment)

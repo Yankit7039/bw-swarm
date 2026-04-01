@@ -1,0 +1,70 @@
+---
+title: Platform overview
+description: How SWARM layers data, orchestration, execution, integrations, and operations into a single platform.
+---
+
+# Platform overview
+
+SWARM is built in **layers**. Each layer has a clear job; together they let you **define**, **run**, and **observe** automations without mixing concerns.
+
+---
+
+## The five layers
+
+### 1. System of record
+
+SWARM keeps **templates**, **runs**, **history**, and **integration metadata** in a **relational database**. That is the authoritative place for “what is configured,” “what happened,” and “what state is this run in.” Operators and APIs read and update the same data, so the Admin Console, dashboards, and integrations stay aligned.
+
+### 2. Orchestration (Runtime)
+
+The **Runtime** accepts **run requests** and **webhooks**, ties them to the right template, and **coordinates execution**. It is the front door for anything that starts or continues work: HTTP calls from your systems, inbound events from tools like ticketing or email, and scheduled follow-ups. It does not replace your workflow logic. It **routes** and **schedules** so execution stays reliable.
+
+### 3. Execution capacity (warm pool + workflow engine)
+
+**Execution** happens in **dedicated capacity** kept warm for responsiveness. The **warm pool** holds ready workers; each run is assigned capacity and handed a **payload**. The **workflow engine** loads your **workflow YAML** and runs stages and steps: tool calls, model-assisted steps, and branching, using the integrations you configured.
+
+### 4. Integrations (Adapter service)
+
+The **Adapter service** is the **integration gateway**. Workflows call **tools** (ticketing, email, OSS/BSS, CRM, and more) through one protocol instead of embedding vendor specifics in every automation. That keeps YAML **readable**, **auditable**, and **reusable** across templates.
+
+### 5. Operations (Admin API + Admin Console)
+
+The **Admin API** powers **operators and automation**: templates, runs, events, adapter discovery, and enqueue when you want work queued. The **Admin Console** is the **visual control plane:** browse templates, inspect runs, edit workflows, and see what tools exist.
+
+---
+
+## How the layers connect
+
+![SWARM high-level architecture: clients, runtime, admin services, data store, warm execution pool, and adapter](/image3.png)
+
+**Triggers** (APIs, webhooks, schedules) hit the Runtime. The Runtime records the run and, when execution is needed, assigns **warm capacity** and starts the **workflow engine** with the right **template** and **payload**. The engine uses the **Adapter** for external actions and writes **progress and results** back to the system of record. **Operators** use the Admin API and Console to configure templates and investigate runs.
+
+Optional **background handoff** (the [run queue](/concepts/redis-queue)) lets fast responses return immediately while execution is processed reliably behind the scenes, which matters for webhooks and high-volume ingress.
+
+---
+
+## Runtime compared to Admin API and Adapter
+
+| Layer | Responsibility |
+|-------|----------------|
+| **Runtime** | Accepts runs and webhooks; coordinates execution, follow-ups, and cleanup of execution claims. |
+| **Admin API** | Serves operators and integrations: templates, runs, events, adapter catalog, enqueue. It **does not** execute workflow logic itself. |
+| **Adapter** | Exposes **tools** to the workflow engine so YAML stays declarative and integrations stay centralized. |
+
+---
+
+## Shared workflow engine, many templates
+
+Templates typically share **one workflow engine image** and **one warm pool**. **Workflow YAML** is loaded **per run** from configuration, so you can ship many automations without rebuilding execution images for each scenario. See [Templates](/guides/templates) and [Warm pool](/concepts/warm-pool).
+
+---
+
+## Further reading
+
+- [Runtime](/concepts/runtime): orchestration responsibilities
+- [Workflow engine](/concepts/workflow-engine): what runs inside execution capacity
+- [Data flow](/concepts/data-flow): sequences for runs, claims, and follow-ups
+- [Run queue](/concepts/redis-queue): when work is handed off asynchronously
+- [Warm pool](/concepts/warm-pool): ready execution capacity
+- [Adapter service](/guides/adapters): integrations and tools
+- [Templates](/guides/templates): packaged automations

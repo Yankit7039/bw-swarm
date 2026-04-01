@@ -34,7 +34,7 @@ Tools are registered in **`adapter/app/mcp_server.py`** via:
 - **`register_porting_gateway_tools`**
 - **`register_notification_tools`**
 
-Tool names follow a **`namespace__function`** pattern (e.g. **`jira__get_ticket`**, **`agentmail__send_email`**). Many tools return **deterministic mock data** when external credentials are unset — see each adapter module under **`adapter/app/adapters/`**.
+Tool names follow a **`namespace__function`** pattern (e.g. **`jira__get_ticket`**, **`agentmail__send_email`**). Many tools return **deterministic mock data** when external credentials are unset. See each adapter module under **`adapter/app/adapters/`**.
 
 ## Adapter tool registry
 
@@ -42,8 +42,8 @@ On application lifespan startup, **`ensure_schema_and_upsert_tools()`** (see **`
 
 The **Admin API** exposes:
 
-- **`GET /adapters/`** — list adapters / tool groups
-- **`GET /adapters/{adapter_name}`** — tools for one adapter
+- **`GET /adapters/`:** list adapters / tool groups
+- **`GET /adapters/{adapter_name}`:** tools for one adapter
 
 The **Admin Console** **Adapters** page reads this API.
 
@@ -76,5 +76,5 @@ Reference tools in **`mcp_call`** steps:
 ## Further reading
 
 - [Workflow YAML](/guides/workflow-yaml)
-- [Admin API](/reference/admin-api) — **`/adapters`**
+- [Admin API](/reference/admin-api): **`/adapters`**
 - [Services](/reference/services)

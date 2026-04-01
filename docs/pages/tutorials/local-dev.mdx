@@ -5,7 +5,7 @@ description: Run Postgres, runtime, admin-api, and admin-console locally.
 
 # Local development
 
-This path runs **Postgres** (often via Docker Compose) and **Python services on your machine** (`uvicorn`). It does **not** start Kind, **warm pools**, the **adapter**, or **swarm-core** pods — so **`POST /runs`** from the runtime will try to schedule sandbox work against Kubernetes (if configured) and will not exercise the full MCP + pod path unless you point **`SANDBOX_NAMESPACE`** at a cluster where agent-sandbox is installed.
+This path runs **Postgres** (often via Docker Compose) and **Python services on your machine** (`uvicorn`). It does **not** start Kind, **warm pools**, the **adapter**, or **swarm-core** pods, so **`POST /runs`** from the runtime will try to schedule sandbox work against Kubernetes (if configured) and will not exercise the full MCP + pod path unless you point **`SANDBOX_NAMESPACE`** at a cluster where agent-sandbox is installed.
 
 For the **full runtime + adapter + template sandboxes + admin-api** stack on a local **Kind** cluster, use **[Kind cluster quickstart](/tutorials/kind-quickstart)** (`./scripts/quickstart.sh` from repo root).
 
@@ -68,7 +68,7 @@ npm install
 npm run dev
 ```
 
-Point the UI at your Admin API (e.g. `VITE_ADMIN_API_URL` in `.env` — often `http://localhost:30081` when using Kind, or `http://localhost:8001` for local uvicorn).
+Point the UI at your Admin API (e.g. `VITE_ADMIN_API_URL` in `.env`, often `http://localhost:30081` when using Kind, or `http://localhost:8001` for local uvicorn).
 
 ## Trigger a run
 

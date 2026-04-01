@@ -1,0 +1,40 @@
+---
+title: Glossary
+description: Terms used across SWARM documentation.
+---
+
+# Glossary
+
+| Term | Meaning |
+|------|---------|
+| **Run** | One **execution** of a **template** with a given **input payload**, tracked from creation through completion or terminal handoff. |
+| **Template** | A **packaged automation**: **metadata**, **workflow YAML**, and **execution** pointers such as **warm pool**; see [Templates](/guides/templates). |
+| **Runtime** | **Orchestration** service: **ingress**, **webhooks**, **execution handoff**, **follow-up** scheduling, and **claim** cleanup; see [Runtime](/concepts/runtime). |
+| **Workflow engine** | Component that **executes** **workflow YAML** inside **assigned capacity**; see [Workflow engine](/concepts/workflow-engine). |
+| **Sandbox pod** | **Kubernetes** worker running the **workflow engine**; executes steps and writes **progress** to the **system of record**. |
+| **Admin API** | **HTTP API** for **operators** and **integrations**: templates, runs, events, **enqueue**, adapter discovery; see [Admin API](/concepts/admin-api). |
+| **Admin Console** | **Web UI** for templates, runs, adapters, and **YAML** editing; see [Admin Console](/concepts/admin-console). |
+| **Workflow YAML** | **Declarative** document: **stages**, **steps**, optional **follow-up**; see [Workflow YAML](/guides/workflow-yaml). |
+| **Warm pool** | **Pre-warmed** **execution capacity** so runs start **quickly**; see [Warm pool](/concepts/warm-pool). |
+| **SandboxTemplate** | **Cluster** resource: **blueprint** for worker pods (image, health, environment). |
+| **SandboxWarmPool** | **Cluster** resource: **how many** idle workers to keep for a given **template**. |
+| **SandboxClaim** | **Cluster** resource: **binds** one warm worker to **one run** for the life of that assignment. |
+| **MCP** | **Model Context Protocol:** how the **workflow engine** invokes **tools** on the **Adapter** over **HTTP**. |
+| **Adapter** | **Integration gateway** exposing **tools** to workflows; see [Adapter service](/guides/adapters). |
+| **Adapter registry** | **Catalog** of **tool** definitions **synced** for **discovery** in the **Admin Console** and **Admin API**. |
+| **Run event** | One **row** in the **timeline** for a run: **type**, **summary**, optional **detail**, **timestamp**. |
+| **Follow-up** | **Scheduled** or **reply-driven** **re-execution** while a run waits; see [Follow-up lifecycle](/concepts/follow-up-lifecycle). |
+| **Follow-up poller** | **Runtime** background work that finds **due** follow-ups and **re-triggers** execution. |
+| **Pending reply worker** | **Runtime** background work that **drains** queued **inbound** messages when the run becomes **idle**. |
+| **Claim reconciler** | **Runtime** background work that **releases** **stale** **claims** when runs reach **terminal** states. |
+| **Warm pool ref** | **Template** setting: which **pool** to use for **execution**, often **shared** across templates. |
+| **Stage** | Named unit in **workflow YAML**: for example **deterministic**, **hybrid**, or **poll loop**. |
+| **Step** | Unit inside a **stage**: **tool call**, **model-assisted** step, or **condition**. |
+| **Poll loop** | **Stage** that **repeats** steps on an **interval** with optional **escalation**. |
+| **Escalation ladder** | Ordered **extra** actions at defined **iterations** inside a **poll loop**. |
+| **Tool filter** | **Allowlist** of **tool** names for a **model-assisted** step. |
+| **Workflow interpretation** | **Execution** of **YAML** stages and steps by the **workflow engine** (tool calls, model steps, branching). |
+| **Communication thread** | **Mapping** from **email thread** to **run** for **inbound** routing. |
+| **Run queue** | **Durable** handoff path when **ingress** must return **fast**; see [Run queue](/concepts/redis-queue). |
+
+Further product vocabulary may appear in template READMEs under **template packages** in the repository.

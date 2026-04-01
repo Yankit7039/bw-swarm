@@ -1,0 +1,65 @@
+---
+title: Event system
+description: "Run timeline and observability in SWARM: event types, who emits them, and how consumers use them."
+---
+
+# Event system
+
+SWARM records a **timeline of events** for each run. These are **append-only** facts that operators and systems can read to answer **what happened**, **when**, and **with what context**. That timeline is the backbone of **run detail** in the **Admin Console** and of **APIs** that power **dashboards** and **audits**.
+
+---
+
+## What you get
+
+For every run, events carry:
+
+- **Type:** a short identifier (for example **workflow started**, **tool completed**).
+- **Summary:** human-readable text for **console** and **log** views.
+- **Detail:** optional **structured** payload for **drill-down** (inputs, outputs, errors where appropriate).
+- **Time:** ordering for **chronological** display.
+
+Events are **ordered** for the run so **UIs** and **integrations** can **page** or **stream** consistently.
+
+---
+
+## Who emits events
+
+### Workflow engine (standard path)
+
+During execution, the **workflow engine** emits events for lifecycle and steps:
+
+| Event type | When |
+|------------|------|
+| **workflow_started** | Run begins |
+| **tool_started** / **tool_completed** | Around **tool** invocations from YAML |
+| **llm_message** | Model output when captured |
+| **workflow_completed** | Successful completion of the workflow path |
+
+**Model-assisted** steps may **restrict** which tools are visible; **labels** in YAML can improve **readability** in **tool** events.
+
+### Workflow engine (follow-up / email flows)
+
+When **follow-up** and **inbound reply** behavior is enabled, additional types appear, for example **follow-up scheduled**, **follow-up sent**, **follow-up exhausted**, **ticket resolved**, and **workflow error** for invalid combinations of **follow-up** and **reply** context. See [Follow-up lifecycle](/concepts/follow-up-lifecycle).
+
+### Runtime (orchestration)
+
+The **Runtime** may emit events when **webhooks** create runs or when **follow-up** or **inbound reply** processing **re-enters** execution, so the timeline reflects **platform-level** actions as well as **in-pod** work.
+
+---
+
+## Consumers
+
+| Consumer | Use |
+|----------|-----|
+| **Admin Console** | Run detail, **flow** or **trace** views where enabled |
+| **Operators** | **API** access for **debugging** and **external** dashboards |
+| **Integrations** | **Polling** or **streaming** patterns depending on deployment |
+
+---
+
+## Further reading
+
+- [Data flow](/concepts/data-flow)
+- [Follow-up lifecycle](/concepts/follow-up-lifecycle)
+- [Admin API reference](/reference/admin-api): events routes
+- [Runtime API reference](/reference/runtime-api)

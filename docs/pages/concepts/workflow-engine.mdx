@@ -1,0 +1,60 @@
+---
+title: Workflow engine
+description: "The shared SWARM workflow engine: declarative YAML, portable automations, and one engine for many templates."
+---
+
+# Workflow engine
+
+The **workflow engine** is the component that **executes** your **workflow YAML** inside **assigned execution capacity**. It is the same engine across templates: you **configure** behavior with YAML and **integrations**, not by forking a new runtime for every scenario.
+
+---
+
+## What problem it solves
+
+Enterprises need automations that are **reviewable**, **versionable**, and **consistent**, not one-off scripts scattered across teams. The workflow engine delivers:
+
+- **Declarative workflows:** Stages, steps, tool calls, and model-assisted steps are expressed in YAML so peers and auditors can follow the intent.
+- **Portability:** The same engine image can run **many templates** because **workflow definitions** are **data**, not baked into bespoke images for every use case (unless you choose otherwise for policy reasons).
+- **Integration without sprawl:** Steps call **tools** exposed by the **Adapter service** so YAML stays readable and integrations stay **centralized**.
+
+---
+
+## What it does during a run
+
+When the Runtime hands a run to execution capacity, the workflow engine:
+
+1. **Loads** the workflow for that template (from configuration appropriate to your deployment).
+2. **Validates** the document so misconfiguration fails **early** with clear signals.
+3. **Runs** the workflow: ordered stages, optional **loops** and **conditions**, **tool** invocations, and **model-assisted** steps where you allow them.
+4. **Emits progress:** standard events for workflow lifecycle, tools, and messages, so operators see a **timeline** in the Admin Console and via APIs. See [Event system](/concepts/event-system).
+
+The engine focuses on **orchestrating the steps you declared**. **Business data** and **integration credentials** are provided by your environment and the Adapter, not hard-coded into each template’s copy of the engine.
+
+---
+
+## “One engine, many templates”
+
+SWARM is designed so **templates** differ by **YAML** and **configuration**, while **execution** stays on a **shared engine** and **shared warm pool** in typical deployments. That means:
+
+- Faster iteration: adjust YAML through **operator workflows** without rebuilding execution images for every tweak.
+- Operational simplicity: **one** engine to patch, monitor, and qualify.
+- Clear boundaries: **templates** describe *what* to do; the **platform** provides *where* and *how* it runs safely.
+
+See [Templates](/guides/templates) and [Warm pool](/concepts/warm-pool).
+
+---
+
+## Relationship to the Adapter
+
+The workflow engine **invokes tools** through the **Adapter service**, the **integration gateway** for external systems. Authors reference tools by **stable names** in YAML; the Adapter handles **protocols** and **credentials** on behalf of workflows. See [Adapter service](/guides/adapters).
+
+---
+
+## Further reading
+
+- [Platform overview](/concepts/architecture)
+- [Runtime](/concepts/runtime)
+- [Workflow YAML](/guides/workflow-yaml)
+- [Templates](/guides/templates)
+- [Adapter service](/guides/adapters)
+- [Data flow](/concepts/data-flow)
