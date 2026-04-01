@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
 export type MeshFlowAnchors = {
-  queue: HTMLElement | null
   hub: HTMLElement | null
   clusters: Partial<Record<string, HTMLElement | null>>
+}
+
+export type MeshQueueToHubPath = {
+  orderId: string
+  d: string
+  /** Mesh focus / display order — opaque path and ingest motion when flow is active. */
+  isActiveFocus: boolean
 }
 
 export type MeshFlowPaths = {
   width: number
   height: number
-  queueToHub: string | null
+  queueToHubPaths: MeshQueueToHubPath[]
   hubToCluster: { clusterId: string; d: string } | null
 }
 
@@ -31,6 +37,20 @@ function cubicBezierH(x1: number, y1: number, x2: number, y2: number, tension = 
   return `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${cx1.toFixed(1)} ${y1.toFixed(1)} ${cx2.toFixed(1)} ${y2.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`
 }
 
+function pathsEqual(a: MeshQueueToHubPath[], b: MeshQueueToHubPath[]) {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i].orderId !== b[i].orderId ||
+      a[i].d !== b[i].d ||
+      a[i].isActiveFocus !== b[i].isActiveFocus
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
 export function useMeshFlowGeometry(
   meshRef: RefObject<HTMLElement | null>,
   anchorsRef: RefObject<MeshFlowAnchors>,
@@ -39,12 +59,16 @@ export function useMeshFlowGeometry(
     showHubToCluster: boolean
     /** Bump when any anchor element registers. */
     anchorRevision: number
+    /** One queue→hub curve per id (pending orders are omitted). */
+    queueConnectorOrderIds: string[]
+    /** Which connector is the primary (opaque) path. */
+    activeFocusOrderId: string | null
   },
 ) {
   const [paths, setPaths] = useState<MeshFlowPaths>({
     width: 0,
     height: 0,
-    queueToHub: null,
+    queueToHubPaths: [],
     hubToCluster: null,
   })
 
@@ -63,11 +87,22 @@ export function useMeshFlowGeometry(
       const a = anchorsRef.current
       if (!a) return
 
-      let queueToHub: string | null = null
-      if (a.queue && a.hub && w > 0 && h > 0) {
-        const p0 = pointRightCenter(a.queue, cr)
-        const p1 = pointLeftCenter(a.hub, cr)
-        queueToHub = cubicBezierH(p0.x, p0.y, p1.x, p1.y)
+      const queueToHubPaths: MeshQueueToHubPath[] = []
+      if (a.hub && w > 0 && h > 0) {
+        const focus = options.activeFocusOrderId
+        for (const orderId of options.queueConnectorOrderIds) {
+          const card = root.querySelector<HTMLElement>(
+            `[data-mesh-queue-order="${CSS.escape(orderId)}"]`,
+          )
+          if (!card) continue
+          const p0 = pointRightCenter(card, cr)
+          const p1 = pointLeftCenter(a.hub, cr)
+          queueToHubPaths.push({
+            orderId,
+            d: cubicBezierH(p0.x, p0.y, p1.x, p1.y),
+            isActiveFocus: focus != null && focus !== '' && orderId === focus,
+          })
+        }
       }
 
       let hubToCluster: { clusterId: string; d: string } | null = null
@@ -93,13 +128,13 @@ export function useMeshFlowGeometry(
         if (
           prev.width === w &&
           prev.height === h &&
-          prev.queueToHub === queueToHub &&
+          pathsEqual(prev.queueToHubPaths, queueToHubPaths) &&
           prev.hubToCluster?.d === hubToCluster?.d &&
           prev.hubToCluster?.clusterId === hubToCluster?.clusterId
         ) {
           return prev
         }
-        return { width: w, height: h, queueToHub, hubToCluster }
+        return { width: w, height: h, queueToHubPaths, hubToCluster }
       })
     })
   }, [
@@ -107,6 +142,8 @@ export function useMeshFlowGeometry(
     anchorsRef,
     options.showHubToCluster,
     options.activeClusterId,
+    options.queueConnectorOrderIds,
+    options.activeFocusOrderId,
   ])
 
   useLayoutEffect(() => {
@@ -123,10 +160,15 @@ export function useMeshFlowGeometry(
     const observeAnchors = () => {
       const a = anchorsRef.current
       if (!a) return
-      if (a.queue) ro.observe(a.queue)
       if (a.hub) ro.observe(a.hub)
       for (const el of Object.values(a.clusters)) {
         if (el) ro.observe(el)
+      }
+      for (const orderId of options.queueConnectorOrderIds) {
+        const card = root.querySelector<HTMLElement>(
+          `[data-mesh-queue-order="${CSS.escape(orderId)}"]`,
+        )
+        if (card) ro.observe(card)
       }
     }
     observeAnchors()
@@ -141,7 +183,7 @@ export function useMeshFlowGeometry(
       window.removeEventListener('resize', measure)
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     }
-  }, [meshRef, measure, options.anchorRevision])
+  }, [meshRef, measure, options.anchorRevision, options.queueConnectorOrderIds])
 
   return { paths, remeasure: measure }
 }

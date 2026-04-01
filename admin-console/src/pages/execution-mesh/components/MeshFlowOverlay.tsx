@@ -2,12 +2,13 @@ import type { MeshFlowPaths } from '../hooks/useMeshFlowGeometry'
 
 type MeshFlowOverlayProps = {
   paths: MeshFlowPaths
-  orchestratorActive: boolean
   activeClusterId: string | null
   /** When false (e.g. all runs finished), paths stay static and no packets animate. */
   flowActive: boolean
-  /** Shown on moving packets — use focused run id (e.g. truncated run_id). */
+  /** Shown on moving packets along queue→hub for the primary (opaque) path. */
   flowTokenLabel?: string
+  /** Shown on hub→cluster packets; defaults to flowTokenLabel when omitted. */
+  hubFlowTokenLabel?: string
 }
 
 const CLUSTER_STROKE: Record<string, string> = {
@@ -23,6 +24,9 @@ const CLUSTER_GLOW: Record<string, string> = {
   alerting: '#fda4af',
   followup: '#c4b5fd',
 }
+
+const SECONDARY_QUEUE_OPACITY = 0.28
+const SECONDARY_QUEUE_STROKE = 2
 
 /** Moving chip + trailing dots along a path (SMIL animateMotion). */
 function FlowAlongPath({
@@ -92,20 +96,28 @@ function FlowAlongPath({
 /** Renders above column content (pointer-events-none) so paths are actually visible. */
 export function MeshFlowOverlay({
   paths,
-  // orchestratorActive,
   activeClusterId,
   flowActive,
   flowTokenLabel = '',
+  hubFlowTokenLabel,
 }: MeshFlowOverlayProps) {
-  const { width, height, queueToHub, hubToCluster } = paths
+  const { width, height, queueToHubPaths, hubToCluster } = paths
   if (width <= 0 || height <= 0) return null
 
   const strokeActive = CLUSTER_STROKE[activeClusterId || ''] ?? '#4f46e5'
   const glowActive = CLUSTER_GLOW[activeClusterId || ''] ?? '#a5b4fc'
-  const token = flowTokenLabel.trim()
-  const showIngestMotion = flowActive && !!queueToHub && token.length > 0
+  const ingestToken = flowTokenLabel.trim()
+  const hubToken = (hubFlowTokenLabel ?? flowTokenLabel).trim()
+
+  const primaryQueuePath = queueToHubPaths.find((p) => p.isActiveFocus)
+  const showIngestMotion = flowActive && !!primaryQueuePath && ingestToken.length > 0
   const ingestDur = 2.15
   const hubDur = 1.85
+
+  const queueOrdered = [...queueToHubPaths].sort((a, b) => {
+    if (a.isActiveFocus === b.isActiveFocus) return 0
+    return a.isActiveFocus ? 1 : -1
+  })
 
   return (
     <svg
@@ -133,58 +145,51 @@ export function MeshFlowOverlay({
         </filter>
       </defs>
 
-      {queueToHub && (
-        <g filter="url(#meshFlowSoftGlow)">
-          <path
-            d={queueToHub}
-            fill="none"
-            stroke="rgba(15, 23, 42, 0.12)"
-            strokeWidth={flowActive ? 10 : 6}
-            strokeLinecap="round"
-          />
-          <path
-            d={queueToHub}
-            fill="none"
-            stroke="url(#meshFlowInStroke)"
-            strokeWidth={flowActive ? 3.2 : 2}
-            strokeLinecap="round"
-            strokeDasharray={flowActive ? '14 10' : '6 8'}
-            className={flowActive ? 'mesh-dash-animate' : ''}
-            opacity={flowActive ? 1 : 0.45}
-          />
-          {showIngestMotion && (
-            <>
-              <FlowAlongPath pathD={queueToHub} label={token} durSec={ingestDur} begin="0s" fillPrimary="#4f46e5" />
-              <FlowAlongPath
-                pathD={queueToHub}
-                label={token}
-                durSec={ingestDur}
-                begin={`${ingestDur * 0.5}s`}
-                fillPrimary="#6366f1"
-                fillBg="#eef2ff"
-                opacity={0.92}
-              />
-            </>
-          )}
-          {flowActive && queueToHub && (
-            <>
+      {queueOrdered.map((seg) => {
+        const isPrimary = seg.isActiveFocus
+        const pathOpacity = isPrimary ? (flowActive ? 1 : 0.45) : SECONDARY_QUEUE_OPACITY
+        const strokeW = isPrimary ? (flowActive ? 3.2 : 2) : SECONDARY_QUEUE_STROKE
+        const dashPattern = isPrimary ? (flowActive ? '14 10' : '6 8') : '6 10'
+        const animateDash = isPrimary && flowActive
+        const pathD = seg.d
+
+        return (
+          <g key={seg.orderId} filter="url(#meshFlowSoftGlow)">
+            <path
+              d={pathD}
+              fill="none"
+              stroke="url(#meshFlowInStroke)"
+              strokeWidth={strokeW}
+              strokeLinecap="round"
+              strokeDasharray={dashPattern}
+              className={animateDash ? 'mesh-dash-animate' : ''}
+              opacity={pathOpacity}
+            />
+            {showIngestMotion && isPrimary && (
+              <>
+                <FlowAlongPath pathD={pathD} label={ingestToken} durSec={ingestDur} begin="0s" fillPrimary="#4f46e5" />
+                <FlowAlongPath
+                  pathD={pathD}
+                  label={ingestToken}
+                  durSec={ingestDur}
+                  begin={`${ingestDur * 0.5}s`}
+                  fillPrimary="#6366f1"
+                  fillBg="#eef2ff"
+                  opacity={0.92}
+                />
+              </>
+            )}
+            {flowActive && isPrimary && (
               <circle r="4" fill="#c7d2fe" stroke="#4f46e5" strokeWidth="1.5" opacity="0.9">
-                <animateMotion dur={`${ingestDur * 0.65}s`} repeatCount="indefinite" path={queueToHub} rotate="auto" />
+                <animateMotion dur={`${ingestDur * 0.65}s`} repeatCount="indefinite" path={pathD} rotate="auto" />
               </circle>
-            </>
-          )}
-        </g>
-      )}
+            )}
+          </g>
+        )
+      })}
 
       {hubToCluster && flowActive && (
         <g filter="url(#meshFlowSoftGlow)">
-          <path
-            d={hubToCluster.d}
-            fill="none"
-            stroke="rgba(15, 23, 42, 0.1)"
-            strokeWidth={10}
-            strokeLinecap="round"
-          />
           <path
             d={hubToCluster.d}
             fill="none"
@@ -200,10 +205,10 @@ export function MeshFlowOverlay({
           <circle r="2.5" fill="#ffffff" stroke={strokeActive} strokeWidth="1.5" opacity="0.95">
             <animateMotion dur={`${hubDur}s`} repeatCount="indefinite" path={hubToCluster.d} begin={`${hubDur * 0.5}s`} rotate="auto" />
           </circle>
-          {token && (
+          {hubToken && (
             <FlowAlongPath
               pathD={hubToCluster.d}
-              label={token}
+              label={hubToken}
               durSec={hubDur * 1.05}
               begin={`${hubDur * 0.25}s`}
               fillPrimary={strokeActive}

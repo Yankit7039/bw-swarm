@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, GitBranch, ListOrdered } from 'lucide-react'
 import { Layout } from '../../components/layout/Layout'
@@ -54,7 +54,7 @@ export function ExecutionMeshViz() {
   })
 
   const meshRef = useRef<HTMLDivElement>(null)
-  const anchorsRef = useRef<MeshFlowAnchors>({ queue: null, hub: null, clusters: {} })
+  const anchorsRef = useRef<MeshFlowAnchors>({ hub: null, clusters: {} })
   const [anchorRevision, setAnchorRevision] = useState(0)
 
   const bumpAnchors = useCallback(() => setAnchorRevision((n) => n + 1), [])
@@ -63,20 +63,11 @@ export function ExecutionMeshViz() {
     const root = meshRef.current
     if (!root) return
 
-    const focusId = displayOrder?.orderId
-    const nextQueue =
-      focusId != null && focusId !== ''
-        ? root.querySelector<HTMLElement>(`[data-mesh-queue-order="${CSS.escape(focusId)}"]`)
-        : null
     const nextHub = root.querySelector<HTMLElement>('[data-mesh-hub="core"]')
 
     const a = anchorsRef.current
     let changed = false
 
-    if (a.queue !== nextQueue) {
-      changed = true
-      a.queue = nextQueue
-    }
     if (a.hub !== nextHub) {
       changed = true
       a.hub = nextHub
@@ -94,17 +85,33 @@ export function ExecutionMeshViz() {
     }
 
     if (changed) bumpAnchors()
-  }, [displayOrder?.orderId, state.clusters, bumpAnchors])
+  }, [state.clusters, bumpAnchors])
 
   const activeClusterId = state.orchestrator.targetClusterId ?? null
   const showHubToCluster = state.orchestrator.isActive && !!activeClusterId
   const flowActive = state.orchestrator.isActive && !allRunsComplete
-  const flowTokenLabel = displayOrder?.orderId ?? ''
+
+  /** Only running orders get queue→hub lines; when every run is done, this is empty and paths disappear. */
+  const queueConnectorOrderIds = useMemo(
+    () => state.orders.filter((o) => o.status === 'evaluating').map((o) => o.orderId),
+    [state.orders],
+  )
+
+  /** Opaque queue→hub path + ingest packets: mesh focus when running, else first running order. */
+  const queueFlowFocusOrderId = useMemo(() => {
+    const d = displayOrder
+    const firstRunning = state.orders.find((o) => o.status === 'evaluating')
+    if (d?.status === 'evaluating') return d.orderId
+    if (firstRunning) return firstRunning.orderId
+    return null
+  }, [displayOrder, state.orders])
 
   const { paths } = useMeshFlowGeometry(meshRef, anchorsRef, {
     activeClusterId,
     showHubToCluster,
     anchorRevision,
+    queueConnectorOrderIds,
+    activeFocusOrderId: queueFlowFocusOrderId,
   })
 
   if (!params) {
@@ -246,10 +253,14 @@ export function ExecutionMeshViz() {
             {/* After columns so z-30 draws on top; pointer-events-none keeps panels clickable */}
             <MeshFlowOverlay
               paths={paths}
-              orchestratorActive={state.orchestrator.isActive}
               activeClusterId={activeClusterId}
               flowActive={flowActive}
-              flowTokenLabel={flowTokenLabel}
+              flowTokenLabel={queueFlowFocusOrderId ?? ''}
+              hubFlowTokenLabel={
+                displayOrder && displayOrder.status !== 'pending'
+                  ? displayOrder.orderId
+                  : (queueFlowFocusOrderId ?? '')
+              }
             />
           </div>
         </div>
