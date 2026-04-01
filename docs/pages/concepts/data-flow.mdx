@@ -7,9 +7,11 @@ description: How runs move through the Runtime, system of record, warm pool, wor
 
 ## Control plane overview
 
-![SWARM architecture: clients, runtime, admin services, data store, warm pool workers, and adapter](/df1.png)
+![SWARM architecture: clients, runtime, admin services, data store, warm pool workers, and adapter](/df.png)
 
 ## Run lifecycle (initial trigger)
+
+![SWARM architecture: clients, runtime, admin services, data store, warm pool workers, and adapter](/df2n.png)
 
 ```mermaid
 sequenceDiagram
@@ -32,6 +34,8 @@ sequenceDiagram
 
 The Runtime does **not** start a **one-off** pod per execution. It creates a **SandboxClaim** that binds a **pre-warmed** worker from the **warm pool** (see [Warm pool](/concepts/warm-pool)). When the worker is ready, the Runtime **POST**s **`run_id`** and **payload** to the worker’s HTTP entrypoint.
 
+![SWARM architecture: clients, runtime, admin services, data store, warm pool workers, and adapter](/df3n.png)
+
 ```mermaid
 sequenceDiagram
   participant R as Runtime
@@ -50,6 +54,8 @@ sequenceDiagram
 ## Follow-up and inbound reply flow
 
 When **follow-up** is configured for **email** in workflow YAML, the worker may set **waiting for follow-up** and a **due time**. The **Runtime** **follow-up** loop picks up **due** runs, records **follow-up started**, and **re-invokes** the worker with **follow-up context**. **Inbound email** webhooks can deliver **engineer replies**; a **reply** path **merges** context and **triggers** execution again. See [Follow-up lifecycle](/concepts/follow-up-lifecycle).
+
+![SWARM architecture: clients, runtime, admin services, data store, warm pool workers, and adapter](/df4n.png)
 
 ```mermaid
 sequenceDiagram

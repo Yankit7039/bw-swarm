@@ -35,7 +35,7 @@ The **Admin API** powers **operators and automation**: templates, runs, events, 
 
 ## How the layers connect
 
-![SWARM high-level architecture: clients, runtime, admin services, data store, warm execution pool, and adapter](/image3.png)
+![SWARM architecture: clients, runtime, admin-api, Postgres, warm pool pods, and adapter](/architecture.png)
 
 **Triggers** (APIs, webhooks, schedules) hit the Runtime. The Runtime records the run and, when execution is needed, assigns **warm capacity** and starts the **workflow engine** with the right **template** and **payload**. The engine uses the **Adapter** for external actions and writes **progress and results** back to the system of record. **Operators** use the Admin API and Console to configure templates and investigate runs.
 
