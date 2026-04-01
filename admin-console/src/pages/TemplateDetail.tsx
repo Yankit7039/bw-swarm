@@ -23,10 +23,14 @@ import {
   Webhook,
   Copy,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { useTemplate, useUpdateTemplateWorkflowYaml } from '../hooks/useTemplates'
 import { validateTemplateYaml } from '../utils/workflowYamlValidation'
+import { highlightYAMLLine } from '../utils/yamlHighlight'
+import { WorkflowEditor, parseWorkflow } from '../components/WorkflowEditor'
 
 function apiErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -39,24 +43,6 @@ function apiErrorMessage(err: unknown): string {
   }
   if (err instanceof Error) return err.message
   return 'Save failed'
-}
-
-// YAML syntax highlighting helper - preserves line structure (display only)
-function highlightYAML(yaml: string): string {
-  return yaml
-    .split('\n')
-    .map(line => {
-      let highlighted = line
-        .replace(/#.*$/g, '<span class="text-slate-400 italic">$&</span>')
-        .replace(/^(\s*)([a-zA-Z_][a-zA-Z0-9_-]*)(:)/g, '$1<span class="text-violet-600 font-semibold">$2</span><span class="text-slate-600">$3</span>')
-        .replace(/: (true|false)/g, ': <span class="text-indigo-600 font-semibold">$1</span>')
-        .replace(/: (\d+)/g, ': <span class="text-amber-600">$1</span>')
-        .replace(/: ([a-zA-Z_][a-zA-Z0-9_-]*)/g, ': <span class="text-emerald-600">$1</span>')
-        .replace(/: "([^"]*)"/g, ': <span class="text-emerald-700">"$1"</span>')
-        .replace(/: '([^']*)'/g, ': <span class="text-emerald-700">\'$1\'</span>')
-      return `<div class="leading-relaxed h-[1.625rem]">${highlighted || '&nbsp;'}</div>`
-    })
-    .join('')
 }
 
 // Get YAML content from template - use workflow_yaml if available
@@ -76,236 +62,6 @@ template_id: "${templateId}"
 name: "${templateName}"`
 }
 
-// interface ClusterConfig {
-//   id: string
-//   name: string
-//   icon: React.ReactNode
-//   iconBg: string
-//   iconColor: string
-//   borderColor: string
-//   status: string
-//   tools: {
-//     id: string
-//     name: string
-//     status: 'running' | 'pending' | 'done' | 'error'
-//     timing?: string
-//     details?: string
-//   }[]
-// }
-
-// const CLUSTERS: ClusterConfig[] = [
-//   {
-//     id: 'diagnosis',
-//     name: 'Diagnosis Cluster',
-//     icon: <Scan className="w-5 h-5" />,
-//     iconBg: 'bg-indigo-100',
-//     iconColor: 'text-indigo-600',
-//     borderColor: 'border-t-indigo-400',
-//     status: '3 Active Agents',
-//     tools: [
-//       {
-//         id: 'log-scanner',
-//         name: 'Log Scanner',
-//         status: 'running',
-//         timing: '0.4s',
-//         details: 'Regex parsing active',
-//       },
-//       {
-//         id: 'network-ping',
-//         name: 'Network Ping',
-//         status: 'pending',
-//       },
-//       {
-//         id: 'provision-check',
-//         name: 'Provision Check',
-//         status: 'done',
-//       },
-//     ],
-//   },
-//   {
-//     id: 'healing',
-//     name: 'Healing Cluster',
-//     icon: <Sparkles className="w-5 h-5" />,
-//     iconBg: 'bg-emerald-100',
-//     iconColor: 'text-emerald-600',
-//     borderColor: 'border-t-emerald-400',
-//     status: 'System Ready',
-//     tools: [
-//       { id: 'auto-sql', name: 'Auto-SQL Fix', status: 'pending' },
-//       { id: 'node-restart', name: 'Node Restarter', status: 'pending' },
-//       { id: 'cache-warm', name: 'Cache Warmer', status: 'done' },
-//     ],
-//   },
-//   {
-//     id: 'alerting',
-//     name: 'Alerting Cluster',
-//     icon: <AlertCircle className="w-5 h-5" />,
-//     iconBg: 'bg-rose-100',
-//     iconColor: 'text-rose-600',
-//     borderColor: 'border-t-rose-400',
-//     status: '2 Notifications Pending',
-//     tools: [
-//       {
-//         id: 'slack-integ',
-//         name: 'Slack Integration',
-//         status: 'error',
-//         details: 'Rate limit nearing 90% capacity',
-//       },
-//       { id: 'pager-duty', name: 'PagerDuty Bridge', status: 'running' },
-//     ],
-//   },
-//   {
-//     id: 'followup',
-//     name: 'Follow-up Cluster',
-//     icon: <History className="w-5 h-5" />,
-//     iconBg: 'bg-violet-100',
-//     iconColor: 'text-violet-600',
-//     borderColor: 'border-t-violet-400',
-//     status: 'Archive Task Active',
-//     tools: [
-//       {
-//         id: 'oms-sync',
-//         name: 'OMS Sync',
-//         status: 'running',
-//         details: '25% complete',
-//       },
-//       { id: 'tracker-seq', name: 'Tracker Sequence', status: 'pending' },
-//     ],
-//   },
-// ]
-
-/* CLUSTERS and ClusterCard are kept for future use in the execution mesh view
-const CLUSTERS: ClusterConfig[] = [...]
-function ClusterCard({ cluster }: { cluster: ClusterConfig }) { ... }
-*/
-
-// const TOOL_ICONS: Record<string, React.ReactNode> = {
-//   'log-scanner': <Search className="w-3.5 h-3.5" />,
-//   'network-ping': <Activity className="w-3.5 h-3.5" />,
-//   'provision-check': <Shield className="w-3.5 h-3.5" />,
-//   'auto-sql': <Database className="w-3.5 h-3.5" />,
-//   'node-restart': <RefreshCw className="w-3.5 h-3.5" />,
-//   'cache-warm': <Network className="w-3.5 h-3.5" />,
-//   'slack-integ': <MessageSquare className="w-3.5 h-3.5" />,
-//   'pager-duty': <AlertCircle className="w-3.5 h-3.5" />,
-//   'oms-sync': <Database className="w-3.5 h-3.5" />,
-//   'tracker-seq': <History className="w-3.5 h-3.5" />,
-// }
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-// function ClusterCard({ cluster }: { cluster: ClusterConfig }) {
-//   return (
-//     <div
-//       className={`bg-white/70 backdrop-blur-sm rounded-2xl p-5 border-t-2 ${cluster.borderColor} shadow-sm hover:shadow-md transition-all relative overflow-hidden group`}
-//     >
-      {/* Background glow effect */}
-      {/* <div
-        className={`absolute -right-8 -top-8 w-24 h-24 rounded-full blur-3xl opacity-20 transition-opacity ${
-          cluster.id === 'diagnosis'
-            ? 'bg-indigo-400 group-hover:opacity-40'
-            : cluster.id === 'healing'
-              ? 'bg-emerald-400 group-hover:opacity-40'
-              : cluster.id === 'alerting'
-                ? 'bg-rose-400 group-hover:opacity-40'
-                : 'bg-violet-400 group-hover:opacity-40'
-        }`}
-      /> */}
-
-      {/* Header */}
-      {/* <div className="flex items-center gap-3 mb-4 relative z-10">
-        <div
-          className={`w-10 h-10 rounded-lg ${cluster.iconBg} flex items-center justify-center ${cluster.iconColor} ring-1 ring-opacity-20 ${cluster.iconBg.replace('bg-', 'ring-')}`}
-        >
-          {cluster.icon}
-        </div>
-        <div>
-          <h3 className="font-bold text-sm text-slate-800">{cluster.name}</h3>
-          <p className="text-[10px] text-slate-500 font-medium">{cluster.status}</p>
-        </div>
-      </div> */}
-
-      {/* Tools List */}
-      {/* <div className="space-y-2 relative z-10">
-        {cluster.tools.map((tool) => (
-          <div
-            key={tool.id}
-            className={`p-3 rounded-xl border transition-all ${
-              tool.status === 'running'
-                ? 'bg-white border-slate-200/60'
-                : tool.status === 'error'
-                  ? 'bg-rose-50/50 border-rose-200/40'
-                  : 'bg-white/40 border-transparent hover:bg-white hover:border-slate-200/40'
-            }`}
-          >
-            <div className="flex justify-between items-center mb-1.5">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-slate-500 ${
-                    tool.status === 'running' ? 'animate-pulse' : ''
-                  }`}
-                >
-                  {TOOL_ICONS[tool.id] || <Wrench className="w-3.5 h-3.5" />}
-                </span>
-                <span className="text-xs font-semibold text-slate-700">{tool.name}</span>
-              </div>
-              {tool.timing && (
-                <span className="text-[10px] font-mono text-indigo-600 font-bold">{tool.timing}</span>
-              )}
-              {tool.status === 'pending' && (
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-              )}
-            </div> */}
-
-            {/* Status indicators */}
-            {/* {tool.status === 'running' && (
-              <div className="space-y-1.5 pl-5 border-l-2 border-indigo-200">
-                <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                  <span>Initializing...</span>
-                </div>
-                <div className="flex items-center gap-2 text-[10px] text-indigo-600 font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_5px_#4f46e5]" />
-                  <span>{tool.details || 'Processing active'}</span>
-                </div>
-              </div>
-            )}
-
-            {tool.status === 'error' && (
-              <div className="mt-2 text-[10px] text-rose-600 leading-relaxed">{tool.details}</div>
-            )}
-
-            {tool.status === 'done' && (
-              <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 font-medium">
-                <CheckCircle className="w-3 h-3" />
-                <span>Completed</span>
-              </div>
-            )}
-
-            {tool.status === 'running' && tool.details?.includes('%') && (
-              <div className="mt-2">
-                <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      cluster.id === 'diagnosis'
-                        ? 'bg-indigo-500'
-                        : cluster.id === 'healing'
-                          ? 'bg-emerald-500'
-                          : cluster.id === 'alerting'
-                            ? 'bg-rose-500'
-                            : 'bg-violet-500'
-                    }`}
-                    style={{ width: tool.details }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-} */}
-
 export function TemplateDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -323,11 +79,15 @@ export function TemplateDetail() {
   const [showWebhookModal, setShowWebhookModal] = useState(false)
   const [copiedUrl, setCopiedUrl] = useState(false)
   const [copiedPayload, setCopiedPayload] = useState(false)
+  const [editView, setEditView] = useState<'structured' | 'raw'>('structured')
+  const [yamlPreviewOpen, setYamlPreviewOpen] = useState(true)
 
   useEffect(() => {
     setIsEditing(false)
     setValidationStatus('idle')
     setValidationMessage(null)
+    setEditView('structured')
+    setYamlPreviewOpen(true)
   }, [id])
 
   const yamlContent = useMemo(
@@ -339,7 +99,8 @@ export function TemplateDetail() {
       ),
     [template?.workflow_yaml, id, template?.name]
   )
-  const highlightedYAML = highlightYAML(yamlContent)
+  const yamlLines = useMemo(() => yamlContent.split('\n'), [yamlContent])
+  const previewLines = useMemo(() => draftYaml.split('\n'), [draftYaml])
   const editorSource = isEditing ? draftYaml : yamlContent
   const lineCount = editorSource.split('\n').length
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1)
@@ -350,6 +111,12 @@ export function TemplateDetail() {
     setValidationStatus('idle')
     setValidationMessage(null)
     setIsEditing(true)
+    try {
+      parseWorkflow(yamlContent)
+      setEditView('structured')
+    } catch {
+      setEditView('raw')
+    }
   }
 
   const handleCancelEdit = () => {
@@ -357,6 +124,17 @@ export function TemplateDetail() {
     updateYaml.reset()
     setValidationStatus('idle')
     setValidationMessage(null)
+    setEditView('structured')
+  }
+
+  const trySetStructuredView = () => {
+    try {
+      parseWorkflow(draftYaml)
+      setEditView('structured')
+    } catch {
+      // WorkflowEditor will show parse error when view switches
+      setEditView('structured')
+    }
   }
 
   const handleSaveYaml = () => {
@@ -675,88 +453,141 @@ export function TemplateDetail() {
           </div>
         )}
 
-        {/* Main Split Content */}
+        {/* Main editor + optional YAML preview */}
         <div className="flex-1 flex overflow-hidden min-h-0">
-          {/* Left: YAML Editor */}
-          <section className="w-full min-h-0 flex flex-col bg-white border-r border-slate-200">
-            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-primary font-mono text-sm">📄</span>
-                <span className="font-semibold text-sm text-slate-700">{template.id}.yaml</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-400 font-mono">v2.4</span>
-              </div>
-            </div>
-
-            <div className="flex-1 flex min-h-0 overflow-hidden yaml-editor">
-              {/* Line Numbers */}
-              <div
-                ref={lineNumbersRef}
-                className="py-6 px-3 text-right text-slate-300 font-mono text-sm select-none border-r border-slate-100 bg-slate-50/50 overflow-y-auto shrink-0 min-h-0"
+          {isEditing ? (
+            <>
+              <section
+                className={`min-h-0 flex flex-col bg-white border-r border-slate-200 ${
+                  editView === 'raw' || (editView === 'structured' && !yamlPreviewOpen)
+                    ? 'flex-1 min-w-0'
+                    : 'w-[55%] min-w-0'
+                }`}
               >
-                {lineNumbers.map((n) => (
-                  <div key={n} className="leading-relaxed h-[1.625rem]">
-                    {n}
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-primary font-mono text-sm">📄</span>
+                    <span className="font-semibold text-sm text-slate-700">{template.id}.yaml</span>
                   </div>
-                ))}
-              </div>
+                  <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => trySetStructuredView()}
+                      className={`px-3 py-1.5 ${editView === 'structured' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      Structured
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditView('raw')}
+                      className={`px-3 py-1.5 ${editView === 'raw' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      Raw YAML
+                    </button>
+                  </div>
+                </div>
 
-              {/* YAML Content */}
-              {isEditing ? (
-                <textarea
-                  ref={textareaRef}
-                  value={draftYaml}
-                  onChange={(e) => setDraftYaml(e.target.value)}
-                  onScroll={syncLineScroll}
-                  spellCheck={false}
-                  className="flex-1 min-h-0 min-w-0 py-6 px-4 font-mono text-sm text-slate-700 bg-white border-0 resize-none focus:ring-0 focus:outline-none overflow-y-auto"
-                  aria-label="Workflow YAML"
-                />
-              ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto py-6 px-4 font-mono text-sm">
-                  <div
-                    dangerouslySetInnerHTML={{ __html: highlightedYAML }}
-                    className="text-slate-700"
-                  />
+                <div className="flex-1 min-h-0 overflow-y-auto yaml-editor px-2 py-2">
+                  {editView === 'structured' ? (
+                    <WorkflowEditor yaml={draftYaml} onYamlChange={setDraftYaml} />
+                  ) : (
+                    <div className="flex min-h-0 h-full">
+                      <div
+                        ref={lineNumbersRef}
+                        className="py-4 px-2 text-right text-slate-300 font-mono text-sm select-none border-r border-slate-100 bg-slate-50/50 overflow-y-auto shrink-0"
+                      >
+                        {lineNumbers.map((n) => (
+                          <div key={n} className="leading-relaxed h-[1.625rem]">
+                            {n}
+                          </div>
+                        ))}
+                      </div>
+                      <textarea
+                        ref={textareaRef}
+                        value={draftYaml}
+                        onChange={(e) => setDraftYaml(e.target.value)}
+                        onScroll={syncLineScroll}
+                        spellCheck={false}
+                        className="flex-1 min-h-0 min-w-0 py-4 px-3 font-mono text-sm text-slate-700 bg-white border-0 resize-none focus:ring-0 focus:outline-none overflow-y-auto overflow-x-auto whitespace-pre"
+                        aria-label="Workflow YAML"
+                      />
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {editView === 'structured' && yamlPreviewOpen && (
+                <section className="w-[45%] min-w-0 min-h-0 flex flex-col bg-slate-50 border-l border-slate-200">
+                  <div className="px-4 py-3 border-b border-slate-100 bg-white flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+                        Live YAML preview
+                      </span>
+                      <p className="text-xs text-slate-500 mt-0.5">Updates as you edit the structured workflow.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setYamlPreviewOpen(false)}
+                      className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+                      aria-label="Hide YAML preview"
+                      title="Hide preview"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto yaml-editor py-4 px-4 font-mono text-sm">
+                    <div className="text-slate-700 space-y-0">
+                      {previewLines.map((line, i) => (
+                        <div
+                          key={i}
+                          className="leading-relaxed min-h-[1.625rem] whitespace-pre-wrap break-words"
+                          dangerouslySetInnerHTML={{ __html: highlightYAMLLine(line) || '&nbsp;' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {editView === 'structured' && !yamlPreviewOpen && (
+                <div className="w-10 shrink-0 min-h-0 flex flex-col items-center border-l border-slate-200 bg-slate-50 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setYamlPreviewOpen(true)}
+                    className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-200/80 hover:text-slate-800 transition"
+                    aria-label="Show YAML preview"
+                    title="Show preview"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
                 </div>
               )}
-            </div>
-          </section>
-
-          {/* Right: Execution Mesh Sidebar */}
-          {/* <aside className="w-1/2 bg-slate-50/80 p-6 overflow-y-auto yaml-editor">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <span className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-bold">
-                  Execution Mesh
-                </span>
-                <h2 className="text-xl font-bold text-slate-900">Swarm Nodes</h2>
+            </>
+          ) : (
+            <section className="w-full min-h-0 flex flex-col bg-white border-r border-slate-200">
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-primary font-mono text-sm">📄</span>
+                  <span className="font-semibold text-sm text-slate-700">{template.id}.yaml</span>
+                </div>
               </div>
-              <button className="p-2 text-slate-400 hover:text-primary transition">
-                <span className="sr-only">Settings</span>
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-5">
-              {CLUSTERS.map((cluster) => (
-                <ClusterCard key={cluster.id} cluster={cluster} />
-              ))}
-            </div>
-          </aside> */}
+              <div className="flex-1 min-h-0 overflow-y-auto yaml-editor">
+                <div className="py-6 px-3">
+                  {yamlLines.map((line, i) => (
+                    <div key={i} className="flex items-start gap-2 font-mono text-sm">
+                      <div className="w-10 shrink-0 py-0 pr-2 text-right text-slate-300 select-none tabular-nums leading-relaxed border-r border-slate-100 bg-slate-50/50">
+                        {i + 1}
+                      </div>
+                      <div
+                        className="min-w-0 flex-1 text-slate-700 leading-relaxed whitespace-pre-wrap break-words"
+                        dangerouslySetInnerHTML={{ __html: highlightYAMLLine(line) || '&nbsp;' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
         </div>
       </div>
 
